@@ -377,3 +377,24 @@ impl eframe::App for CompanionApp {
         });
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::safe_hex_color;
+
+    #[test]
+    fn accepts_supported_hex_colour_lengths() {
+        assert_eq!(safe_hex_color("#abc"), Some("#abc"));
+        assert_eq!(safe_hex_color("#aabbcc"), Some("#aabbcc"));
+        assert_eq!(safe_hex_color("#aabbccdd"), Some("#aabbccdd"));
+    }
+
+    #[test]
+    fn rejects_invalid_or_injected_colour_values() {
+        assert_eq!(safe_hex_color("red"), None);
+        assert_eq!(safe_hex_color("#12xz56"), None);
+        assert_eq!(safe_hex_color("#fff\" onload=\"bad"), None);
+        assert_eq!(safe_hex_color("none"), None);
+    }
+}
