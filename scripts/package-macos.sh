@@ -18,7 +18,7 @@ install -m 755 "$BIN" "$APP/Contents/MacOS/LucideCompanion"
 ICONSET="dist/AppIcon.iconset"
 mkdir -p "$ICONSET"
 rsvg-convert --width 1024 --height 1024 assets/app-icon.svg > dist/AppIcon-1024.png
-for SIZE in 16 32 64 128 256 512; do
+for SIZE in 16 32 128 256 512; do
   sips -z "$SIZE" "$SIZE" dist/AppIcon-1024.png --out "$ICONSET/icon_${SIZE}x${SIZE}.png" >/dev/null
 done
 sips -z 32 32 dist/AppIcon-1024.png --out "$ICONSET/icon_16x16@2x.png" >/dev/null
