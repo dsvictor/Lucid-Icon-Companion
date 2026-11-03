@@ -26,7 +26,7 @@ cargo run
 To package an Apple Silicon app and DMG on macOS:
 
 ```sh
-./scripts/package-macos.sh
+bash scripts/package-macos.sh
 ```
 
 ## FigCraft control channel
