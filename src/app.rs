@@ -180,6 +180,7 @@ impl CompanionApp {
         let tree = resvg::usvg::Tree::from_str(svg, &resvg::usvg::Options::default()).ok()?;
         let source_size = tree.size().to_int_size();
         let scale = 4.0_f32;
+        if !scale.is_finite() || scale <= 0.0 { return None; }
         let width = source_size.width().max(1) * scale as u32;
         let height = source_size.height().max(1) * scale as u32;
         let mut pixmap = tiny_skia::Pixmap::new(width, height)?;
@@ -191,8 +192,7 @@ impl CompanionApp {
 }
 
 impl eframe::App for CompanionApp {
-    fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let ctx = root_ui.ctx();
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Ok(result) = self.catalogue_rx.try_recv() {
             self.loading = false;
             match result {
@@ -218,6 +218,10 @@ impl eframe::App for CompanionApp {
             }
         }
 
+    }
+
+    fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = root_ui.ctx().clone();
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Lucide Companion");
@@ -364,6 +368,17 @@ impl eframe::App for CompanionApp {
                 if !group_tags.is_empty() { ui.label(format!("Groups: {}", group_tags.join(" · "))); }
 
                 ui.separator();
+                if !self.settings.icon_size.is_finite() {
+                    self.settings.icon_size = 96.0;
+                }
+                self.settings.icon_size = self.settings.icon_size.clamp(24.0, 320.0);
+                if !self.settings.stroke_width.is_finite() {
+                    self.settings.stroke_width = 2.0;
+                }
+                self.settings.stroke_width = self.settings.stroke_width.clamp(0.5, 4.0);
+                if !self.settings.import_x.is_finite() { self.settings.import_x = 0.0; }
+                if !self.settings.import_y.is_finite() { self.settings.import_y = 0.0; }
+
                 ui.collapsing("Appearance", |ui| {
                     ui.add(egui::Slider::new(&mut self.settings.icon_size, 24.0..=320.0).text("Preview size"));
                     ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0).text("Stroke width"));
@@ -424,7 +439,7 @@ impl eframe::App for CompanionApp {
             }
         });
     }
-}
+}}
 
 
 #[cfg(test)]
