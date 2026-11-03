@@ -29,7 +29,7 @@ jobs:
           cargo test --target aarch64-apple-darwin
           cargo build --release --target aarch64-apple-darwin
       - name: Package app and DMG
-        run: ./scripts/package-macos.sh aarch64-apple-darwin
+        run: bash scripts/package-macos.sh aarch64-apple-darwin
       - name: Upload Apple Silicon DMG
         uses: actions/upload-artifact@v4
         with:
