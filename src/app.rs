@@ -334,9 +334,10 @@ impl eframe::App for CompanionApp {
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
             #[cfg(target_os = "macos")]
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-                // Keep the title's left position, but align its baseline lower with the traffic lights.
+            ui.horizontal(|ui| {
+                // Keep the title in the compact top navigation row and align it with the traffic lights.
                 ui.add_space(68.0);
+                ui.add_space(8.0);
                 ui.label(egui::RichText::new("Lucide Icon")
                     .font(egui::FontId::proportional(15.0))
                     .strong()
