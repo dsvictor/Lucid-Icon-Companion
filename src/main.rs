@@ -9,8 +9,8 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Lucide Companion for FigCraft")
-            .with_inner_size([440.0, 700.0])
-            .with_min_inner_size([360.0, 560.0]),
+            .with_inner_size([360.0, 560.0])
+            .with_min_inner_size([320.0, 440.0]),
         ..Default::default()
     };
 
