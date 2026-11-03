@@ -28,5 +28,5 @@
 ## Remaining release work
 - Hands-on target-machine testing is required; remote CI cannot validate the user's installed FigCraft runtime.
 - Direct drag-out from the icon browser is not supported by the current GUI toolkit integration.
-- Windows/Linux builds and signed/notarized macOS distribution remain future work.
+- Windows/Linux compile checks are included; platform-specific installers and runtime validation remain future work. Signed/notarized macOS distribution remains future work.
 - Signing/notarization requires Developer ID credentials owned by the publisher.
