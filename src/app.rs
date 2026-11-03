@@ -27,6 +27,17 @@ pub struct CompanionApp {
     preview: Option<(String, egui::TextureHandle)>,
 }
 
+fn safe_hex_color(value: &str) -> Option<&str> {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("none") { return None; }
+    let valid_length = matches!(value.len(), 4 | 7 | 9);
+    if valid_length && value.starts_with('#') && value[1..].bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        Some(value)
+    } else {
+        None
+    }
+}
+
 impl CompanionApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let settings = Settings::load();
