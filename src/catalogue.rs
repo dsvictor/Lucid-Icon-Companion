@@ -91,6 +91,8 @@ pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueErro
     }
     if count == 0 { return Err(CatalogueError::Empty); }
     if !tags_written { let _ = fs::write(root.join("tags.json"), "{}"); }
+    fs::write(root.join("version.txt"), &latest.version)
+        .map_err(|e| CatalogueError::Cache(e.to_string()))?;
     Ok((load_cache(root), latest.version))
 }
 
