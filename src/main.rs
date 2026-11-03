@@ -10,7 +10,11 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_title("Lucide Icon")
             .with_inner_size([520.0, 900.0])
-            .with_min_inner_size([420.0, 620.0]),
+            .with_min_inner_size([420.0, 620.0])
+            // On macOS, draw the app's charcoal surface behind the native traffic lights.
+            .with_fullsize_content_view(true)
+            .with_titlebar_shown(false)
+            .with_title_shown(false),
         ..Default::default()
     };
 
