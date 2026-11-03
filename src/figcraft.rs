@@ -33,7 +33,7 @@ impl FigCraftClient {
     }
 
     pub fn check_connection(&self) -> Result<(), FigCraftError> {
-        let request = json!({"id": NEXT_ID.fetch_add(1, Ordering::Relaxed), "method": "engine.ping", "params": {}});
+        let request = json!({"id": NEXT_ID.fetch_add(1, Ordering::Relaxed), "method": "window.list", "params": {}});
         self.send(&request).map(|_| ())
     }
 
