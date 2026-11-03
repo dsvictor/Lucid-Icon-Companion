@@ -18,6 +18,7 @@ pub struct CompanionApp {
     settings: Settings,
     query: String,
     icons: Vec<Icon>,
+    catalogue_version: String,
     selected: Option<String>,
     view: LibraryView,
     group: Option<String>,
@@ -58,7 +59,8 @@ impl CompanionApp {
         visuals.code_bg_color = egui::Color32::from_rgb(35, 35, 35);
         visuals.window_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(68, 68, 68));
         visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(43, 43, 43);
-        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(49, 49, 49);
+        // Controls that sit on the toolbar should visually disappear into the window surface.
+        visuals.widgets.inactive.bg_fill = visuals.panel_fill;
         visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(62, 62, 62);
         visuals.widgets.active.bg_fill = egui::Color32::from_rgb(72, 72, 72);
         visuals.selection.bg_fill = egui::Color32::from_rgb(0, 105, 145);
@@ -66,6 +68,9 @@ impl CompanionApp {
         cc.egui_ctx.set_visuals(visuals);
         let settings = Settings::load();
         let icons = catalogue::load_cache(&settings.cache_dir);
+        let catalogue_version = fs::read_to_string(settings.cache_dir.join("version.txt"))
+            .map(|version| version.trim().to_owned())
+            .unwrap_or_else(|_| "version unavailable".to_owned());
         let status = if icons.is_empty() {
             "Catalogue not installed. Choose Update catalogue to download all Lucide icons.".to_owned()
         } else {
@@ -74,7 +79,7 @@ impl CompanionApp {
         let (catalogue_tx, catalogue_rx) = mpsc::channel();
         let (action_tx, action_rx) = mpsc::channel();
         Self {
-            settings, query: String::new(), icons, selected: None, view: LibraryView::All,
+            settings, query: String::new(), icons, catalogue_version, selected: None, view: LibraryView::All,
             group: None, tab: MainTab::Icons, status, loading: false, importing: false,
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
             grid_previews: std::collections::HashMap::new(),
@@ -264,6 +269,7 @@ impl eframe::App for CompanionApp {
             match result {
                 Ok((icons, version)) => {
                     self.icons = icons;
+                    self.catalogue_version = version.clone();
                     self.selected = None;
                     self.preview = None;
                     self.grid_previews.clear();
@@ -308,14 +314,22 @@ impl eframe::App for CompanionApp {
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
         // One compact navigation row: keep the window chrome, remove the redundant in-app title bar.
-        egui::Panel::top("navigation").show(root_ui, |ui| {
+        egui::Panel::top("navigation")
+            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
+            .show(root_ui, |ui| {
+            #[cfg(target_os = "macos")]
+            ui.add_space(30.0);
             ui.horizontal(|ui| {
+                #[cfg(target_os = "macos")]
+                ui.add_space(76.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
                 ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icons").size(14.0));
                 ui.selectable_value(&mut self.tab, MainTab::Settings, egui::RichText::new("Settings").size(14.0));
                 ui.selectable_value(&mut self.tab, MainTab::Info, egui::RichText::new("Info").size(14.0));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.small_button("↗").on_hover_text("Open FigCraft with control enabled").clicked() {
+                    let open_figcraft = ui.add(egui::Button::new("↗").frame(false))
+                        .on_hover_text("Open FigCraft with control enabled");
+                    if open_figcraft.clicked() {
                         self.launch_figcraft();
                     }
                 });
@@ -326,7 +340,8 @@ impl eframe::App for CompanionApp {
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill).inner_margin(egui::Margin::symmetric(12, 5)))
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Lucide").small().underline().color(egui::Color32::from_gray(155)));
+                    ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
+                        .small().underline().color(egui::Color32::from_gray(155)));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let refresh = ui.add_enabled(!self.loading, egui::Button::new(
                             egui::RichText::new("⟳").size(18.0).color(egui::Color32::from_gray(190))
@@ -338,7 +353,10 @@ impl eframe::App for CompanionApp {
                 });
             });
 
-        egui::CentralPanel::default().show(root_ui, |ui| {
+        egui::CentralPanel::default()
+            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
+                .inner_margin(egui::Margin::symmetric(12, 0)))
+            .show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
                     ui.add_space(8.0);
@@ -353,7 +371,20 @@ impl eframe::App for CompanionApp {
                             egui::Layout::left_to_right(egui::Align::Center),
                             |ui| {
                                 ui.spacing_mut().item_spacing.x = 7.0;
-                                ui.label(egui::RichText::new("⌕").size(22.0).color(egui::Color32::WHITE));
+                                // Draw the magnifier with vector primitives so it renders on every system font.
+                                let (search_icon_rect, _) = ui.allocate_exact_size(
+                                    egui::vec2(22.0, 27.0), egui::Sense::hover());
+                                let search_center = egui::pos2(
+                                    search_icon_rect.center().x - 2.0,
+                                    search_icon_rect.center().y - 2.0,
+                                );
+                                let search_stroke = egui::Stroke::new(1.8, egui::Color32::WHITE);
+                                ui.painter().circle_stroke(search_center, 6.0, search_stroke);
+                                ui.painter().line_segment(
+                                    [egui::pos2(search_center.x + 4.5, search_center.y + 4.5),
+                                     egui::pos2(search_center.x + 9.0, search_center.y + 9.0)],
+                                    search_stroke,
+                                );
                                 let response = ui.add_sized(
                                     [ui.available_width().max(40.0), 27.0],
                                     egui::TextEdit::singleline(&mut self.query)
