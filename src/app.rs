@@ -83,12 +83,14 @@ impl CompanionApp {
     }
 
     fn styled_svg(&self, icon: &Icon) -> String {
-        let stroke = self.settings.stroke_color.trim();
-        let fill = self.settings.fill_color.trim();
+        let stroke = safe_hex_color(&self.settings.stroke_color).unwrap_or("#000000");
+        let fill = safe_hex_color(&self.settings.fill_color);
         let svg = icon.svg.replace("currentColor", stroke)
-            .replace("stroke-width=\"2\"", &format!("stroke-width=\"{}\"", self.settings.stroke_width));
-        if fill.eq_ignore_ascii_case("none") { svg }
-        else { svg.replace("fill=\"none\"", &format!("fill=\"{fill}\"")) }
+            .replace("stroke-width=\\"2\\"", &format!("stroke-width=\\"{}\\"", self.settings.stroke_width));
+        match fill {
+            Some(color) => svg.replace("fill=\\"none\\"", &format!("fill=\\"{color}\\"")),
+            None => svg,
+        }
     }
 
     fn select_icon(&mut self, name: &str) {
