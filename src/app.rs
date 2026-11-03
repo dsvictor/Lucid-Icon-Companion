@@ -134,7 +134,16 @@ impl CompanionApp {
                 LibraryView::Recent => self.settings.recent.iter().any(|name| name == &icon.name),
             })
             .filter(|icon| self.group.as_ref().map_or(true, |group| {
-                icon.tags.iter().any(|tag| tag == &format!("$group:{group}"))
+                let key = group.to_lowercase().replace(" & ", " ").replace(['-', ' '], "");
+                let metadata_match = icon.tags.iter().any(|tag| {
+                    tag.strip_prefix("$group:").map(|value| value.eq_ignore_ascii_case(group)).unwrap_or(false)
+                });
+                if metadata_match { return true; }
+                let haystack = format!("{} {}", icon.name.replace('-', " "), icon.tags.join(" ")).to_lowercase();
+                let terms: Vec<String> = group.to_lowercase().split(|c: char| !c.is_alphanumeric())
+                    .filter(|part| !part.is_empty()).map(str::to_owned).collect();
+                terms.iter().any(|term| haystack.contains(term))
+                    || haystack.contains(&key)
             }))
             .map(|icon| icon.name.clone()).collect()
     }
@@ -142,6 +151,20 @@ impl CompanionApp {
     fn available_groups(&self) -> Vec<String> {
         let mut groups: Vec<String> = self.icons.iter().flat_map(|icon| icon.tags.iter())
             .filter_map(|tag| tag.strip_prefix("$group:").map(str::to_owned)).collect();
+        if groups.is_empty() {
+            // lucide-static ships searchable tags but some releases omit category
+            // group markers; keep the official category picker populated in that case.
+            groups = [
+                "Accessibility", "Accounts & access", "Animals", "Arrows", "Buildings",
+                "Charts", "Communication", "Connectivity", "Cursors", "Design",
+                "Coding & development", "Devices", "Emoji", "File icons", "Finance",
+                "Food & beverage", "Gaming", "Home", "Layout", "Letters & digits",
+                "Mail", "Mathematics", "Medical", "Multimedia", "Nature",
+                "Navigation & places", "Notifications", "People", "Photography",
+                "Science", "Seasons", "Security", "Shapes", "Shopping", "Social",
+                "Sports", "Sustainability", "Time", "Travel", "Weather"
+            ].iter().map(|value| value.to_string()).collect();
+        }
         groups.sort();
         groups.dedup();
         groups
