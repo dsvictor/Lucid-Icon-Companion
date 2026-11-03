@@ -1,33 +1,32 @@
-# Build status — development branch
+# Build status — 0.2.0 development
 
 ## Implemented
-- Native Rust/egui desktop application.
-- Runtime download of the latest published `lucide-static` package.
-- Complete SVG extraction plus upstream `tags.json` metadata cache.
-- Multi-token name/tag search.
-- All, Favorites and Recent views.
-- Persistent favourites, recents, appearance, import position and port settings.
-- SVG preview, stroke/fill customization, export and clipboard copy.
-- Async catalogue update and async FigCraft import to keep the UI responsive.
-- FigCraft launch, control-channel ping, viewport-centred or explicit X/Y SVG import.
-- Apple Silicon macOS app bundle and DMG workflow.
+- Native Rust/egui desktop app for macOS Apple Silicon.
+- Dynamic latest-release Lucide static package downloader.
+- Full SVG extraction with staging cache replacement, plus upstream `tags.json`.
+- Multi-token name/tag search and tag-group filtering.
+- All, Favorites and Recent library views.
+- Persistent favourites, recent history, appearance settings and FigCraft preferences.
+- SVG preview, stroke/fill customization, SVG export and clipboard copy.
+- Background catalogue download and background FigCraft control operations.
+- FigCraft launch, connection test using `window.list`, and editable SVG import.
+- Viewport-centred or explicit X/Y placement.
+- Keyboard search/navigation shortcuts.
+- Apple Silicon app bundle and DMG CI packaging.
 
-## Verified by GitHub Actions
-- Apple Silicon Rust tests and release compilation passed.
-- App bundle/DMG packaging passed.
-- Artifact upload passed for the initial 0.1.0 build.
+## CI evidence
+- Previous 0.1.0 Apple Silicon build, tests, DMG packaging and artifact upload passed.
+- 0.2.0 feature branch is under CI validation. The latest successful result must be checked before publishing a replacement artifact.
 
-## Still requires user-machine verification
-- Launch and interact with the app on macOS 27.2.
-- Download the latest catalogue and compare the cached icon count to the upstream package.
-- Test control ping and actual SVG insertion with FigCraft 0.15.0.
-- Verify placement coordinates against the user's active document and viewport.
-- Verify file picker, clipboard and Gatekeeper behaviour.
+## Not yet verified on the user's Mac
+- App launch and visual usability on macOS 27.2.
+- Latest catalogue download and exact icon count against the npm package.
+- Actual control connection and SVG insertion against installed FigCraft 0.15.0.
+- Placement in the user's active document and viewport.
+- Gatekeeper, clipboard and native save-dialog behaviour.
 
-## Release blockers
-- Add and validate category metadata if upstream exposes a suitable package index.
-- Add keyboard navigation, icon grid/drag export and richer visual controls.
-- Add Windows/Linux CI once macOS functionality is validated.
-- Code signing and notarization need Developer ID credentials.
-
-Do not call this production-ready until real FigCraft insertion is tested on the target Mac.
+## Remaining release work
+- Hands-on target-machine testing is required; remote CI cannot validate the user's installed FigCraft runtime.
+- Direct drag-out from the icon browser is not supported by the current GUI toolkit integration.
+- Windows/Linux builds and signed/notarized macOS distribution remain future work.
+- Signing/notarization requires Developer ID credentials owned by the publisher.
