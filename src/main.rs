@@ -1,3 +1,5 @@
+use eframe::egui;
+
 mod app;
 mod catalogue;
 mod figcraft;
