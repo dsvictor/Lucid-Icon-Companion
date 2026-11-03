@@ -1,6 +1,6 @@
 [package]
 name = "lucide-icon-companion"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Jayanta"]
 description = "A native desktop companion for browsing Lucide icons and inserting SVGs into FigCraft."
