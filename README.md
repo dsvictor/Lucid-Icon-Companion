@@ -1,45 +1,78 @@
 # Lucide Companion for FigCraft
 
-A native desktop companion for browsing the complete Lucide icon library, previewing and customizing SVGs, and inserting editable SVG geometry into FigCraft.
+A native macOS companion for browsing the full Lucide icon set, styling SVGs, and inserting editable vector geometry into FigCraft.
 
 **Author:** Jayanta  
-**Initial target:** macOS Apple Silicon  
-**Implementation:** Rust + egui
+**Version:** 0.2.0  
+**First platform:** macOS Apple Silicon  
+**Architecture:** Rust + egui, with a portable application core.
 
 ## Features
 
-- Downloads the current published `lucide-static` package at runtime.
-- Caches every upstream SVG and its upstream `tags.json` search metadata.
-- Searches icon names and multiple metadata tags.
-- All, Favorites and Recent library views.
-- SVG preview with adjustable size, stroke width, stroke colour and fill.
-- Export SVG, copy SVG source, and preview the raw SVG markup.
-- Saves favourites, recents, appearance settings and FigCraft connection preferences.
-- Launches FigCraft with the loopback control channel enabled.
-- Tests the control connection and imports SVG as editable geometry.
-- Supports viewport-centred insertion or explicit canvas X/Y placement.
+### Icon library
+- Resolves the latest published `lucide-static` package at runtime.
+- Downloads the complete SVG set and upstream `tags.json` metadata.
+- Search across icon names and metadata tags; all search terms must match.
+- Filter by upstream tag groups.
+- All, Favorites and Recent views.
+- Persistent favourites and recent-icon history.
 
-## Install the macOS build
+### Preview and SVG styling
+- SVG preview rendered locally.
+- Adjustable preview size and stroke width.
+- Custom stroke and fill colours (hex values); fill can remain `none`.
+- Export SVG to a chosen location.
+- Copy SVG source to the clipboard and inspect raw markup.
 
-Download the latest **Lucide-Companion-macOS-arm64** artifact from [GitHub Actions](https://github.com/dsvictor/Lucid-Icon-Companion/actions). Extract the artifact ZIP, open the DMG, and drag Lucide Companion into Applications. This initial distribution is unsigned; macOS may require you to approve opening it.
+### FigCraft integration
+- Launch FigCraft with its loopback control listener.
+- Test the control connection using the documented `window.list` method.
+- Import SVG as editable geometry with `engine.execute` → `file.import`.
+- Insert centred in the current viewport or at explicit canvas X/Y coordinates.
+- Catalogue download and FigCraft actions run in background threads so the UI stays responsive.
+
+### Keyboard
+- `⌘F`: focus icon search.
+- `↑` / `↓`: move through the filtered icon list when search is not focused.
+- `Enter`: select the first result when no result is selected.
+- `Esc`: clear the search query.
+
+## Download
+
+The latest Apple Silicon development build is published as a GitHub Actions artifact:
+
+[Open macOS build artifacts](https://github.com/dsvictor/Lucid-Icon-Companion/actions)
+
+Download **Lucide-Companion-macOS-arm64**, extract the artifact ZIP, open the DMG, and drag the app into Applications. This build is unsigned; macOS may ask you to approve opening it.
 
 ## Build from source
 
-Install Rust using rustup, then run `cargo run`.
+Install Rust using rustup, then run:
 
-Package an Apple Silicon app and DMG on macOS with `bash scripts/package-macos.sh`.
+```sh
+cargo run
+```
+
+Create an Apple Silicon app bundle and DMG on macOS:
+
+```sh
+bash scripts/package-macos.sh
+```
 
 ## FigCraft control channel
 
-The app connects to `127.0.0.1:7979` using newline-delimited JSON. It can launch FigCraft with `--control 7979`, test the connection, and call `engine.execute` with `file.import`, passing SVG bytes as base64 data. The import supports viewport-centred or explicit X/Y placement.
+The companion connects to `127.0.0.1:7979` using newline-delimited JSON. It launches FigCraft with `--control 7979`, tests the connection with `window.list`, and sends SVG data as base64 through `engine.execute` / `file.import`.
+
+The import command accepts X/Y coordinates and a `center` flag. When centred mode is enabled, no explicit coordinates are sent and FigCraft uses the current viewport centre.
 
 ## Known limitations
 
-- Search uses Lucide's published tags metadata; icon categories are not included in the static package's tag index.
-- The target-machine behaviour must still be tested with the user's installed FigCraft 0.15.0.
-- The initial macOS package is unsigned. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
-- Windows and Linux builds are not yet included in the release pipeline.
+- Lucide's static package publishes tags and tag groups, not a separate category taxonomy; the app therefore exposes upstream tag groups rather than inventing categories.
+- Runtime insertion still needs a hands-on test against the user's installed FigCraft 0.15.0 and active document.
+- Dragging icons directly out of the companion into another app is not implemented; use Copy SVG or Export SVG.
+- The macOS package is unsigned. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
+- Windows and Linux packaging are future targets after macOS behaviour is validated.
 
 ## Licensing
 
-The companion source is MIT-licensed. Lucide SVG assets remain under the Lucide project's ISC license: https://github.com/lucide-icons/lucide.
+Companion source: MIT. Lucide SVG assets: ISC, as published by the Lucide project. See https://github.com/lucide-icons/lucide.
