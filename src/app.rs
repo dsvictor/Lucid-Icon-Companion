@@ -222,87 +222,96 @@ impl eframe::App for CompanionApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
+
         egui::Panel::top("header").show(root_ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("Lucide Companion");
-                ui.label("for FigCraft");
-                ui.separator();
-                if ui.add_enabled(!self.loading, egui::Button::new("Update catalogue")).clicked() {
-                    self.update_catalogue(&ctx);
-                }
-                if ui.button("Launch FigCraft").clicked() { self.launch_figcraft(); }
-                if ui.button("Test connection").clicked() { self.check_figcraft(&ctx); }
+                ui.heading("Lucide");
+                ui.label(egui::RichText::new("for FigCraft").weak().small());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label("by Jayanta");
+                    if ui.add_enabled(!self.loading, egui::Button::new("↻")).on_hover_text("Update icon library").clicked() {
+                        self.update_catalogue(&ctx);
+                    }
+                    if ui.button("FigCraft").clicked() { self.launch_figcraft(); }
                 });
             });
         });
 
         egui::Panel::bottom("status").show(root_ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(&self.status);
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(&self.status).small().weak());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(format!("{} icons", self.icons.len()));
+                    ui.label(egui::RichText::new(format!("{} icons", self.icons.len())).small().weak());
                 });
             });
         });
 
-        egui::Panel::left("icon_browser").resizable(true).default_size(320.0).show(root_ui, |ui| {
-            ui.heading("Icon library");
-            let search_response = ui.add(egui::TextEdit::singleline(&mut self.query)
-                .hint_text("Search names and tags…").desired_width(f32::INFINITY));
-            if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F)) {
-                search_response.request_focus();
-            }
+        egui::CentralPanel::default().show(root_ui, |ui| {
+            ui.add(egui::TextEdit::singleline(&mut self.query)
+                .hint_text("Search icons…").desired_width(f32::INFINITY));
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.view, LibraryView::All, "All");
-                ui.selectable_value(&mut self.view, LibraryView::Favorites, "★ Favorites");
+                ui.selectable_value(&mut self.view, LibraryView::Favorites, "★");
                 ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let groups = self.available_groups();
+                    egui::ComboBox::from_id_salt("tag_group_filter")
+                        .selected_text(self.group.as_deref().unwrap_or("Groups"))
+                        .width(112.0)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.group, None, "All groups");
+                            for group in &groups {
+                                ui.selectable_value(&mut self.group, Some(group.clone()), group);
+                            }
+                        });
+                });
             });
 
-            let groups = self.available_groups();
-            egui::ComboBox::from_id_salt("tag_group_filter")
-                .selected_text(self.group.as_deref().unwrap_or("All tag groups"))
-                .width(f32::INFINITY)
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.group, None, "All tag groups");
-                    for group in &groups {
-                        ui.selectable_value(&mut self.group, Some(group.clone()), group);
+            let names = self.filtered_icon_names();
+            ui.label(egui::RichText::new(format!("{} icons", names.len())).small().weak());
+
+            if let Some(icon) = self.selected_icon() {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&icon.name).strong());
+                    if ui.add_enabled(!self.importing, egui::Button::new(if self.importing { "Inserting…" } else { "Insert ↗" })).clicked() {
+                        self.insert_into_figcraft(&icon, &ctx);
+                    }
+                    if ui.small_button("Copy").on_hover_text("Copy SVG").clicked() {
+                        ctx.copy_text(self.styled_svg(&icon));
+                        self.status = format!("Copied {} SVG.", icon.name);
+                    }
+                    if ui.small_button(if self.settings.is_favorite(&icon.name) { "★" } else { "☆" }).clicked() {
+                        self.settings.toggle_favorite(&icon.name);
+                        let _ = self.settings.save();
                     }
                 });
-
-            ui.separator();
-            let names = self.filtered_icon_names();
-            ui.label(format!("{} matching icons", names.len()));
-            if !search_response.has_focus() {
-                let (down, up, enter, escape) = ui.input(|i| (
-                    i.key_pressed(egui::Key::ArrowDown),
-                    i.key_pressed(egui::Key::ArrowUp),
-                    i.key_pressed(egui::Key::Enter),
-                    i.key_pressed(egui::Key::Escape),
-                ));
-                if escape && !self.query.is_empty() { self.query.clear(); }
-                let current = self.selected.as_ref().and_then(|name| names.iter().position(|item| item == name));
-                let next = if down && !names.is_empty() {
-                    Some(current.map_or(0, |index| (index + 1).min(names.len() - 1)))
-                } else if up && !names.is_empty() {
-                    Some(current.map_or(0, |index| index.saturating_sub(1)))
-                } else if enter && current.is_none() && !names.is_empty() {
-                    Some(0)
-                } else { None };
-                if let Some(index) = next {
-                    if let Some(name) = names.get(index) { self.select_icon(name); }
-                }
+                ui.collapsing("Customize", |ui| {
+                    ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0).text("Stroke"));
+                    ui.horizontal(|ui| {
+                        ui.label("Colour");
+                        ui.add(egui::TextEdit::singleline(&mut self.settings.stroke_color).desired_width(82.0));
+                        ui.label("Fill");
+                        ui.add(egui::TextEdit::singleline(&mut self.settings.fill_color).desired_width(70.0));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut self.settings.center_on_view, "Center in viewport");
+                        if ui.button("Export SVG…").clicked() {
+                            let svg = self.styled_svg(&icon);
+                            self.export_svg(&icon.name, &svg);
+                        }
+                    });
+                });
+            } else {
+                ui.label(egui::RichText::new("Select an icon · double-click to insert").small().weak());
             }
 
-            // Virtualized thumbnail grid: only rows visible in the scroll viewport
-            // are rasterized, keeping the full Lucide catalogue responsive.
+            ui.separator();
+
             let available_width = if ui.available_width().is_finite() {
                 ui.available_width().clamp(1.0, 4096.0)
-            } else { 320.0 };
-            let cell_width = 92.0_f32;
+            } else { 360.0 };
+            let cell_width = ((available_width - 16.0) / 3.0).clamp(88.0, 124.0);
             let columns = ((available_width / cell_width).floor() as usize).max(1);
-            let row_height = 88.0_f32;
+            let row_height = 76.0_f32;
             let row_count = names.len().div_ceil(columns);
             egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(
                 ui, row_height, row_count, |ui, row_range| {
@@ -314,7 +323,7 @@ impl eframe::App for CompanionApp {
                                 let selected = self.selected.as_ref() == Some(name);
                                 let icon_svg = self.icons.iter()
                                     .find(|icon| icon.name == *name)
-                                    .map(|icon| icon.svg.clone());
+                                    .map(|icon| icon.svg.replace("currentColor", "#e5e7eb"));
                                 ui.allocate_ui_with_layout(
                                     egui::vec2(cell_width, row_height),
                                     egui::Layout::top_down(egui::Align::Center),
@@ -327,20 +336,21 @@ impl eframe::App for CompanionApp {
                                             }
                                         }
                                         if let Some(texture) = self.grid_previews.get(name) {
-                                            ui.add(egui::Image::new((texture.id(), egui::vec2(32.0, 32.0))));
+                                            ui.add(egui::Image::new((texture.id(), egui::vec2(30.0, 30.0))));
                                         } else {
-                                            ui.add_space(32.0);
+                                            ui.add_space(30.0);
                                         }
-                                        if ui.add_sized(
+                                        let response = ui.add_sized(
                                             [cell_width - 4.0, 22.0],
                                             egui::Button::selectable(selected, name),
-                                        ).clicked() {
+                                        );
+                                        if response.double_clicked() {
                                             self.select_icon(name);
-                                        }
-                                        let favorite = self.settings.is_favorite(name);
-                                        if ui.small_button(if favorite { "★" } else { "☆" }).clicked() {
-                                            self.settings.toggle_favorite(name);
-                                            let _ = self.settings.save();
+                                            if let Some(icon) = self.selected_icon() {
+                                                self.insert_into_figcraft(&icon, &ctx);
+                                            }
+                                        } else if response.clicked() {
+                                            self.select_icon(name);
                                         }
                                     },
                                 );
@@ -349,94 +359,6 @@ impl eframe::App for CompanionApp {
                     }
                 },
             );
-        });
-
-        egui::CentralPanel::default().show(root_ui, |ui| {
-            if let Some(icon) = self.selected_icon() {
-                ui.horizontal(|ui| {
-                    ui.heading(&icon.name);
-                    if ui.button(if self.settings.is_favorite(&icon.name) { "★ Remove favorite" } else { "☆ Add favorite" }).clicked() {
-                        self.settings.toggle_favorite(&icon.name);
-                        let _ = self.settings.save();
-                    }
-                });
-                let visible_tags: Vec<&str> = icon.tags.iter()
-                    .filter(|tag| !tag.starts_with("$group:")).map(String::as_str).collect();
-                let group_tags: Vec<&str> = icon.tags.iter()
-                    .filter_map(|tag| tag.strip_prefix("$group:")).collect();
-                ui.label(if visible_tags.is_empty() { "No descriptive tags supplied upstream".to_owned() } else { visible_tags.join(" · ") });
-                if !group_tags.is_empty() { ui.label(format!("Groups: {}", group_tags.join(" · "))); }
-
-                ui.separator();
-                if !self.settings.icon_size.is_finite() {
-                    self.settings.icon_size = 96.0;
-                }
-                self.settings.icon_size = self.settings.icon_size.clamp(24.0, 320.0);
-                if !self.settings.stroke_width.is_finite() {
-                    self.settings.stroke_width = 2.0;
-                }
-                self.settings.stroke_width = self.settings.stroke_width.clamp(0.5, 4.0);
-                if !self.settings.import_x.is_finite() { self.settings.import_x = 0.0; }
-                if !self.settings.import_y.is_finite() { self.settings.import_y = 0.0; }
-
-                ui.collapsing("Appearance", |ui| {
-                    ui.add(egui::Slider::new(&mut self.settings.icon_size, 24.0..=320.0).text("Preview size"));
-                    ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0).text("Stroke width"));
-                    ui.horizontal(|ui| {
-                        ui.label("Stroke"); ui.text_edit_singleline(&mut self.settings.stroke_color);
-                        ui.label("Fill"); ui.text_edit_singleline(&mut self.settings.fill_color);
-                    });
-                    ui.label("Use hex colours such as #171717, or set fill to none.");
-                });
-
-                let svg = self.styled_svg(&icon);
-                let key = format!("{}-{}-{}-{}-{}", icon.name, self.settings.icon_size,
-                    self.settings.stroke_width, self.settings.stroke_color, self.settings.fill_color);
-                if self.preview.as_ref().map(|(cached, _)| cached) != Some(&key) {
-                    self.preview = Self::render_preview(&ctx, &svg, &key).map(|texture| (key.clone(), texture));
-                }
-                ui.add_space(10.0);
-                if let Some((_, texture)) = &self.preview {
-                    ui.centered_and_justified(|ui| {
-                        let preview_size = if self.settings.icon_size.is_finite() {
-                            self.settings.icon_size.clamp(24.0, 320.0)
-                        } else { 96.0 };
-                        let size = egui::Vec2::splat(preview_size);
-                        ui.add(egui::Image::new((texture.id(), size)));
-                    });
-                } else { ui.label("SVG preview could not be rendered."); }
-
-                ui.separator();
-                ui.heading("FigCraft insertion");
-                ui.horizontal(|ui| {
-                    ui.label("Control port");
-                    ui.add(egui::DragValue::new(&mut self.settings.control_port).range(1..=65535));
-                    ui.checkbox(&mut self.settings.center_on_view, "Center in viewport");
-                });
-                if !self.settings.center_on_view {
-                    ui.horizontal(|ui| {
-                        ui.label("Canvas X"); ui.add(egui::DragValue::new(&mut self.settings.import_x).speed(1.0));
-                        ui.label("Y"); ui.add(egui::DragValue::new(&mut self.settings.import_y).speed(1.0));
-                    });
-                }
-                ui.horizontal(|ui| {
-                    if ui.add_enabled(!self.importing, egui::Button::new("Insert into FigCraft")).clicked() {
-                        self.insert_into_figcraft(&icon, &ctx);
-                    }
-                    if ui.button("Export SVG…").clicked() { self.export_svg(&icon.name, &svg); }
-                    if ui.button("Copy SVG").clicked() {
-                        ctx.copy_text(svg.clone());
-                        self.status = format!("Copied {} SVG to clipboard.", icon.name);
-                    }
-                    if ui.button("Save preferences").clicked() { self.save_settings(); }
-                });
-                ui.collapsing("SVG source", |ui| {
-                    let mut source = svg.clone();
-                    ui.add(egui::TextEdit::multiline(&mut source).desired_rows(10).code_editor().desired_width(f32::INFINITY));
-                });
-            } else {
-                ui.centered_and_justified(|ui| { ui.label("Select an icon to preview, customize, export or insert it."); });
-            }
         });
     }
 }
