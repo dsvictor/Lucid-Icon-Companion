@@ -114,12 +114,14 @@ mod tests {
         ]
     }
     #[test] fn search_is_case_insensitive_and_matches_names() {
-        let matches = search(&sample(), "ARROW");
+        let icons = sample();
+        let matches = search(&icons, "ARROW");
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].name, "arrow-down");
     }
     #[test] fn search_matches_upstream_tags() {
-        let matches = search(&sample(), "schedule");
+        let icons = sample();
+        let matches = search(&icons, "schedule");
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].name, "alarm-clock");
     }
