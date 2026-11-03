@@ -305,39 +305,49 @@ impl eframe::App for CompanionApp {
             match self.tab {
                 MainTab::Icons => {
                     ui.add_space(5.0);
-                    // Search and category selector share one Lucide-style toolbar.
+                    // Lucide-style single toolbar: borderless search on the panel surface,
+                    // with a compact category selector aligned to the right.
                     ui.horizontal(|ui| {
-                        let search_width = (ui.available_width() - 138.0).max(110.0);
+                        let category_width = 126.0_f32;
+                        let gap = 8.0_f32;
+                        let outer_width = (ui.available_width() - category_width - gap).max(120.0);
                         egui::Frame::new()
-                            .fill(egui::Color32::from_rgb(35, 35, 35))
-                            .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(62, 62, 62)))
-                            .corner_radius(egui::CornerRadius::same(7))
-                            .inner_margin(egui::Margin::symmetric(9, 7))
+                            .fill(ui.visuals().panel_fill)
+                            .stroke(egui::Stroke::NONE)
+                            .inner_margin(egui::Margin::symmetric(2, 6))
                             .show(ui, |ui| {
-                                ui.set_min_width(search_width);
+                                ui.set_width(outer_width - 4.0);
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("⌕").size(19.0).color(egui::Color32::from_gray(225)));
-                                    let edit = egui::TextEdit::singleline(&mut self.query)
-                                        .hint_text("Search icons")
-                                        .frame(egui::Frame::NONE)
-                                        .desired_width((search_width - 62.0).max(50.0));
-                                    ui.add(edit);
+                                    ui.label(egui::RichText::new("⌕").size(20.0).color(egui::Color32::from_gray(235)));
+                                    let text_width = (outer_width - 74.0).max(48.0);
+                                    ui.add_sized(
+                                        [text_width, 28.0],
+                                        egui::TextEdit::singleline(&mut self.query)
+                                            .hint_text("Search icons")
+                                            .frame(egui::Frame::NONE),
+                                    );
                                     if !self.query.is_empty() && ui.small_button("×").clicked() {
                                         self.query.clear();
                                     }
                                 });
                             });
+                        ui.add_space(gap);
                         let groups = self.available_groups();
                         egui::ComboBox::from_id_salt("tag_group_filter")
                             .selected_text(self.group.as_deref().unwrap_or("All categories"))
-                            .width(130.0)
+                            .width(category_width)
                             .show_ui(ui, |ui| {
-                                ui.set_min_width(190.0);
-                                egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+                                ui.set_min_width(210.0);
+                                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                                    ui.set_min_width(194.0);
                                     ui.selectable_value(&mut self.group, None, "All categories");
                                     ui.separator();
-                                    for group in &groups {
-                                        ui.selectable_value(&mut self.group, Some(group.clone()), group);
+                                    if groups.is_empty() {
+                                        ui.label(egui::RichText::new("Category metadata unavailable").weak());
+                                    } else {
+                                        for group in &groups {
+                                            ui.selectable_value(&mut self.group, Some(group.clone()), group);
+                                        }
                                     }
                                 });
                             });
