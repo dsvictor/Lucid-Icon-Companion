@@ -268,10 +268,12 @@ impl eframe::App for CompanionApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
-        egui::Panel::top("header").show(root_ui, |ui| {
+        // One compact navigation row: keep the window chrome, remove the redundant in-app title bar.
+        egui::Panel::top("navigation").show(root_ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("◉").size(18.0).strong());
-                ui.heading(egui::RichText::new("Lucide Icons").size(17.0));
+                ui.selectable_value(&mut self.tab, MainTab::Icons, "Icons");
+                ui.selectable_value(&mut self.tab, MainTab::Settings, "Settings");
+                ui.selectable_value(&mut self.tab, MainTab::Info, "Info");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.small_button("↻").on_hover_text("Update Lucide icon catalogue").clicked() {
                         self.update_catalogue(&ctx);
@@ -279,21 +281,6 @@ impl eframe::App for CompanionApp {
                     if ui.small_button("↗").on_hover_text("Open FigCraft with control enabled").clicked() {
                         self.launch_figcraft();
                     }
-                });
-            });
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.tab, MainTab::Icons, "Icons");
-                ui.selectable_value(&mut self.tab, MainTab::Settings, "Settings");
-                ui.selectable_value(&mut self.tab, MainTab::Info, "Info");
-            });
-        });
-
-        egui::Panel::bottom("status").show(root_ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(format!("Lucide · {} icons", self.icons.len())).small().weak());
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(egui::RichText::new(&self.status).small().weak());
                 });
             });
         });
@@ -332,13 +319,18 @@ impl eframe::App for CompanionApp {
                     ui.add_space(3.0);
                     let names = self.filtered_icon_names();
                     ui.label(egui::RichText::new(format!("{} icons", names.len())).small().weak());
-                    let columns = ((ui.available_width() / 51.0).floor() as usize).clamp(1, 8);
-                    let row_height = 51.0;
+                    // Recalculate the number and width of cells from the live viewport width.
+                    // This keeps the icon grid centred and evenly spaced as the window is resized.
+                    let grid_width = ui.available_width().max(1.0);
+                    let columns = ((grid_width / 54.0).floor() as usize).clamp(1, 10);
+                    let cell_width = grid_width / columns as f32;
+                    let row_height = 52.0;
                     let rows = names.len().div_ceil(columns);
                     egui::ScrollArea::vertical().auto_shrink([false, false])
                         .show_rows(ui, row_height, rows, |ui, range| {
                             for row in range {
                                 ui.horizontal(|ui| {
+                                    ui.spacing_mut().item_spacing.x = 0.0;
                                     for col in 0..columns {
                                         let index = row * columns + col;
                                         let Some(name) = names.get(index) else { break; };
@@ -346,7 +338,7 @@ impl eframe::App for CompanionApp {
                                         let svg = self.icons.iter().find(|icon| icon.name == *name)
                                             .map(|icon| icon.svg.replace("currentColor", "#eeeeee"));
                                         ui.allocate_ui_with_layout(
-                                            egui::vec2(49.0, row_height),
+                                            egui::vec2(cell_width, row_height),
                                             egui::Layout::top_down(egui::Align::Center),
                                             |ui| {
                                                 let (rect, response) = ui.allocate_exact_size(
@@ -470,6 +462,8 @@ impl eframe::App for CompanionApp {
                     ui.heading("Lucide Companion");
                     ui.label("A native icon browser and SVG importer for FigCraft.");
                     ui.add_space(10.0);
+                    ui.label(egui::RichText::new(&self.status).small().weak());
+                    ui.add_space(6.0);
                     ui.label(egui::RichText::new("FIGCRAFT CONNECTION").small().strong().weak());
                     ui.label(format!("Control endpoint · 127.0.0.1:{}", self.settings.control_port));
                     ui.horizontal(|ui| {
