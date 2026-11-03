@@ -94,14 +94,59 @@ pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueErro
     Ok((load_cache(root), latest.version))
 }
 
+fn edit_distance_at_most_one(a: &str, b: &str) -> bool {
+    if a == b { return true; }
+    let aa: Vec<char> = a.chars().collect();
+    let bb: Vec<char> = b.chars().collect();
+    if aa.len().abs_diff(bb.len()) > 1 { return false; }
+    let (mut i, mut j, mut edits) = (0usize, 0usize, 0usize);
+    while i < aa.len() && j < bb.len() {
+        if aa[i] == bb[j] { i += 1; j += 1; }
+        else {
+            edits += 1;
+            if edits > 1 { return false; }
+            if aa.len() > bb.len() { i += 1; }
+            else if bb.len() > aa.len() { j += 1; }
+            else { i += 1; j += 1; }
+        }
+    }
+    if i < aa.len() || j < bb.len() { edits += 1; }
+    edits <= 1
+}
+
+fn token_score(term: &str, words: &[&str], full: &str) -> Option<i32> {
+    if full == term { return Some(100); }
+    if words.iter().any(|word| *word == term) { return Some(90); }
+    if full.starts_with(term) || words.iter().any(|word| word.starts_with(term)) { return Some(75); }
+    if full.contains(term) || words.iter().any(|word| word.contains(term)) { return Some(60); }
+    if term.len() >= 4 && words.iter().any(|word| edit_distance_at_most_one(term, word)) { return Some(35); }
+    // Subsequence matching helps natural queries such as "alrm" -> "alarm".
+    if words.iter().any(|word| {
+        let mut chars = word.chars();
+        term.chars().all(|wanted| chars.by_ref().any(|got| got == wanted))
+    }) { return Some(20); }
+    None
+}
+
 pub fn search<'a>(icons: &'a [Icon], query: &str) -> Vec<&'a Icon> {
     let terms: Vec<String> = query.split_whitespace().map(|part| part.to_lowercase()).collect();
     if terms.is_empty() { return icons.iter().collect(); }
-    icons.iter().filter(|icon| {
-        let name = icon.name.to_lowercase();
-        let tags = icon.tags.join(" ").to_lowercase();
-        terms.iter().all(|term| name.contains(term) || tags.contains(term))
-    }).collect()
+    let mut ranked: Vec<(i32, usize, &Icon)> = icons.iter().enumerate().filter_map(|(index, icon)| {
+        let name = icon.name.to_lowercase().replace('-', " ");
+        let tags = icon.tags.iter().filter(|tag| !tag.starts_with("$group:"))
+            .map(|tag| tag.to_lowercase()).collect::<Vec<_>>().join(" ");
+        let full = format!("{name} {tags}");
+        let words: Vec<&str> = full.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+        let mut score = 0;
+        for term in &terms {
+            let term_score = token_score(term, &words, &full)?;
+            score += term_score;
+        }
+        if name.contains(&terms[0]) { score += 12; }
+        Some((score, index, icon))
+    }).collect();
+    ranked.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    ranked.into_iter().map(|(_, _, icon)| icon).collect()
 }
 
 #[cfg(test)]
