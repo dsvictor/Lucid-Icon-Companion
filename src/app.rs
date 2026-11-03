@@ -264,22 +264,15 @@ impl eframe::App for CompanionApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
-
         egui::Panel::top("header").show(root_ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("Lucide");
-                ui.label(egui::RichText::new("for FigCraft").weak().small());
+                ui.heading(egui::RichText::new("Lucide").size(17.0));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.add_enabled(!self.loading, egui::Button::new("↻")).on_hover_text("Update icon library").clicked() {
-                        self.update_catalogue(&ctx);
-                    }
-                    if ui.button("Inspect").clicked() { self.refresh_figcraft_context(&ctx); }
-                    if ui.button("Test").clicked() { self.check_figcraft(&ctx); }
-                    if ui.button("Open FigCraft").clicked() { self.launch_figcraft(); }
+                    if ui.small_button("⋯").on_hover_text("Inspect FigCraft document").clicked() { self.refresh_figcraft_context(&ctx); }
+                    if ui.small_button("↻").on_hover_text("Update icon library").clicked() { self.update_catalogue(&ctx); }
                 });
             });
         });
-
         egui::Panel::bottom("status").show(root_ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(&self.status).small().weak());
@@ -288,183 +281,92 @@ impl eframe::App for CompanionApp {
                 });
             });
         });
-
         egui::CentralPanel::default().show(root_ui, |ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.query)
-                .hint_text("Search icons…").desired_width(f32::INFINITY));
-            ui.collapsing("FigCraft document & selection", |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Active document context").weak().small());
-                    if ui.add_enabled(!self.context_loading, egui::Button::new(if self.context_loading { "Inspecting…" } else { "Refresh" })).clicked() {
-                        self.refresh_figcraft_context(&ctx);
-                    }
-                });
-                if let Some((details, texture)) = &self.host_context {
-                    ui.add(egui::Image::new((texture.id(), egui::vec2(180.0, 120.0))));
-                    egui::ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
-                        ui.label(egui::RichText::new(details).monospace().small());
-                    });
-                } else {
-                    ui.label(egui::RichText::new("Inspect the active FigCraft document to preview its current selection here.").small().weak());
-                }
-            });
+            ui.add_space(3.0);
+            ui.add(egui::TextEdit::singleline(&mut self.query).hint_text("⌕  Search icons, tags, or concepts…").desired_width(f32::INFINITY));
+            ui.add_space(5.0);
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.view, LibraryView::All, "All");
                 ui.selectable_value(&mut self.view, LibraryView::Favorites, "★");
                 ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let groups = self.available_groups();
-                    egui::ComboBox::from_id_salt("tag_group_filter")
-                        .selected_text(self.group.as_deref().unwrap_or("Groups"))
-                        .width(112.0)
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.group, None, "All groups");
-                            for group in &groups {
-                                ui.selectable_value(&mut self.group, Some(group.clone()), group);
-                            }
+                    egui::ComboBox::from_id_salt("tag_group_filter").selected_text(self.group.as_deref().unwrap_or("Categories"))
+                        .width(118.0).show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.group, None, "All categories");
+                            for group in &groups { ui.selectable_value(&mut self.group, Some(group.clone()), group); }
                         });
                 });
             });
-
+            ui.add_space(4.0);
             let names = self.filtered_icon_names();
             ui.label(egui::RichText::new(format!("{} icons", names.len())).small().weak());
-
+            let columns = ((ui.available_width() / 48.0).floor() as usize).clamp(1, 12);
+            let row_height = 49.0;
+            let rows = names.len().div_ceil(columns);
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(ui, row_height, rows, |ui, range| {
+                for row in range {
+                    ui.horizontal(|ui| {
+                        for col in 0..columns {
+                            let index = row * columns + col;
+                            let Some(name) = names.get(index) else { break; };
+                            let selected = self.selected.as_ref() == Some(name);
+                            let svg = self.icons.iter().find(|icon| icon.name == *name).map(|icon| icon.svg.replace("currentColor", "#e5e7eb"));
+                            ui.allocate_ui_with_layout(egui::vec2(48.0, row_height), egui::Layout::top_down(egui::Align::Center), |ui| {
+                                let (rect, response) = ui.allocate_exact_size(egui::vec2(42.0, 43.0), egui::Sense::click());
+                                if selected { ui.painter().rect_filled(rect, 6.0, ui.visuals().selection.bg_fill); }
+                                else if response.hovered() { ui.painter().rect_filled(rect, 6.0, ui.visuals().widgets.hovered.bg_fill); }
+                                if !self.grid_previews.contains_key(name) {
+                                    if let Some(svg) = svg.as_deref() {
+                                        if let Some(texture) = Self::render_preview(&ctx, svg, &format!("grid-{name}")) { self.grid_previews.insert(name.clone(), texture); }
+                                    }
+                                }
+                                if let Some(texture) = self.grid_previews.get(name) {
+                                    let image_rect = egui::Rect::from_center_size(rect.center(), egui::vec2(25.0, 25.0));
+                                    ui.painter().image(texture.id(), image_rect, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+                                }
+                                if response.on_hover_text(name).clicked() {
+                                    self.select_icon(name);
+                                    if let Some(icon) = self.selected_icon() { self.insert_into_figcraft(&icon, &ctx); }
+                                }
+                            });
+                        }
+                    });
+                }
+            });
             if let Some(icon) = self.selected_icon() {
+                ui.separator();
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(&icon.name).strong());
-                    if ui.add_enabled(!self.importing, egui::Button::new(if self.importing { "Inserting…" } else { "Insert ↗" })).clicked() {
-                        self.insert_into_figcraft(&icon, &ctx);
-                    }
-                    if ui.small_button("Copy").on_hover_text("Copy SVG").clicked() {
-                        ctx.copy_text(self.styled_svg(&icon));
-                        self.status = format!("Copied {} SVG.", icon.name);
-                    }
-                    if ui.small_button(if self.settings.is_favorite(&icon.name) { "★" } else { "☆" }).clicked() {
-                        self.settings.toggle_favorite(&icon.name);
-                        let _ = self.settings.save();
-                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.add_enabled(!self.importing, egui::Button::new(if self.importing { "Inserting…" } else { "Insert" })).clicked() { self.insert_into_figcraft(&icon, &ctx); }
+                        if ui.small_button("Copy").clicked() { ctx.copy_text(self.styled_svg(&icon)); self.status = format!("Copied {} SVG.", icon.name); }
+                        if ui.small_button(if self.settings.is_favorite(&icon.name) { "★" } else { "☆" }).clicked() { self.settings.toggle_favorite(&icon.name); let _ = self.settings.save(); }
+                    });
                 });
-
-                // Show the actual styled SVG so changes are visible before insertion.
-                if self.preview.is_none() {
-                    let svg = self.styled_svg(&icon);
-                    self.preview = Self::render_preview(&ctx, &svg, &format!("selected-{}", icon.name))
-                        .map(|texture| (icon.name.clone(), texture));
-                }
-                if let Some((preview_name, texture)) = &self.preview {
-                    if preview_name == &icon.name {
-                        ui.vertical_centered(|ui| {
-                            ui.add_space(4.0);
-                            ui.add(egui::Image::new((texture.id(), egui::vec2(
-                                self.settings.icon_size.clamp(48.0, 240.0),
-                                self.settings.icon_size.clamp(48.0, 240.0),
-                            ))));
-                        });
-                    }
-                }
-
                 ui.collapsing("Customize", |ui| {
                     let mut changed = false;
                     ui.horizontal(|ui| {
-                        changed |= ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0)
-                            .text("Stroke")).changed();
-                        changed |= ui.add(egui::Slider::new(&mut self.settings.icon_size, 48.0..=240.0)
-                            .text("Preview")).changed();
+                        changed |= ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0).text("Stroke")).changed();
+                        changed |= ui.add(egui::Slider::new(&mut self.settings.icon_size, 48.0..=240.0).text("Preview")).changed();
                     });
                     ui.horizontal(|ui| {
-                        ui.label("Stroke");
-                        changed |= ui.add(egui::TextEdit::singleline(&mut self.settings.stroke_color)
-                            .desired_width(88.0).hint_text("#RRGGBB")).changed();
-                        ui.label("Fill");
-                        changed |= ui.add(egui::TextEdit::singleline(&mut self.settings.fill_color)
-                            .desired_width(76.0).hint_text("none or #RRGGBB")).changed();
+                        ui.label("Stroke"); changed |= ui.add(egui::TextEdit::singleline(&mut self.settings.stroke_color).desired_width(76.0)).changed();
+                        ui.label("Fill"); changed |= ui.add(egui::TextEdit::singleline(&mut self.settings.fill_color).desired_width(76.0)).changed();
                     });
-                    let stroke_valid = safe_hex_color(&self.settings.stroke_color).is_some();
-                    let fill_valid = self.settings.fill_color.trim().eq_ignore_ascii_case("none")
-                        || safe_hex_color(&self.settings.fill_color).is_some();
-                    if !stroke_valid || !fill_valid {
-                        ui.colored_label(egui::Color32::LIGHT_RED,
-                            "Use #RGB, #RRGGBB, #RRGGBBAA; fill also accepts none.");
-                    } else if changed {
-                        self.preview = None;
-                        self.save_settings();
-                    }
+                    let valid = safe_hex_color(&self.settings.stroke_color).is_some() && (self.settings.fill_color.trim().eq_ignore_ascii_case("none") || safe_hex_color(&self.settings.fill_color).is_some());
+                    if !valid { ui.colored_label(egui::Color32::LIGHT_RED, "Enter a valid hex colour or 'none'."); }
                     ui.horizontal(|ui| {
                         ui.checkbox(&mut self.settings.center_on_view, "Center in viewport");
-                        if !self.settings.center_on_view {
-                            ui.label("X");
-                            changed |= ui.add(egui::DragValue::new(&mut self.settings.import_x).speed(1.0)).changed();
-                            ui.label("Y");
-                            changed |= ui.add(egui::DragValue::new(&mut self.settings.import_y).speed(1.0)).changed();
-                        }
+                        if !self.settings.center_on_view { ui.add(egui::DragValue::new(&mut self.settings.import_x).prefix("X ")); ui.add(egui::DragValue::new(&mut self.settings.import_y).prefix("Y ")); }
                     });
-                    if changed {
-                        self.preview = None;
-                        if stroke_valid && fill_valid { self.save_settings(); }
-                    }
-                    if ui.button("Export styled SVG…").clicked() {
-                        let svg = self.styled_svg(&icon);
-                        self.export_svg(&icon.name, &svg);
-                    }
+                    if changed && valid { self.preview = None; self.save_settings(); }
+                    if ui.button("Export styled SVG…").clicked() { let svg = self.styled_svg(&icon); self.export_svg(&icon.name, &svg); }
                 });
-            } else {
-                ui.label(egui::RichText::new("Choose an icon to preview, customize and insert it.").small().weak());
             }
-            ui.separator();
-
-            let available_width = if ui.available_width().is_finite() {
-                ui.available_width().clamp(1.0, 4096.0)
-            } else { 360.0 };
-            let cell_width = ((available_width - 16.0) / 3.0).clamp(88.0, 124.0);
-            let columns = ((available_width / cell_width).floor() as usize).max(1);
-            let row_height = 76.0_f32;
-            let row_count = names.len().div_ceil(columns);
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(
-                ui, row_height, row_count, |ui, row_range| {
-                    for row in row_range {
-                        ui.horizontal(|ui| {
-                            for column in 0..columns {
-                                let index = row * columns + column;
-                                let Some(name) = names.get(index) else { break; };
-                                let selected = self.selected.as_ref() == Some(name);
-                                let icon_svg = self.icons.iter()
-                                    .find(|icon| icon.name == *name)
-                                    .map(|icon| icon.svg.replace("currentColor", "#e5e7eb"));
-                                ui.allocate_ui_with_layout(
-                                    egui::vec2(cell_width, row_height),
-                                    egui::Layout::top_down(egui::Align::Center),
-                                    |ui| {
-                                        if !self.grid_previews.contains_key(name) {
-                                            if let Some(svg) = icon_svg.as_deref() {
-                                                if let Some(texture) = Self::render_preview(&ctx, svg, &format!("grid-{name}")) {
-                                                    self.grid_previews.insert(name.clone(), texture);
-                                                }
-                                            }
-                                        }
-                                        if let Some(texture) = self.grid_previews.get(name) {
-                                            ui.add(egui::Image::new((texture.id(), egui::vec2(30.0, 30.0))));
-                                        } else {
-                                            ui.add_space(30.0);
-                                        }
-                                        let response = ui.add_sized(
-                                            [cell_width - 4.0, 22.0],
-                                            egui::Button::selectable(selected, name),
-                                        );
-                                        if response.clicked() {
-                                            self.select_icon(name);
-                                            if let Some(icon) = self.selected_icon() {
-                                                self.insert_into_figcraft(&icon, &ctx);
-                                            }
-                                        }
-                                    },
-                                );
-                            }
-                        });
-                    }
-                },
-            );
         });
     }
+
 }
 
 
