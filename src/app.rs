@@ -131,7 +131,7 @@ impl CompanionApp {
         self.status = format!("Checking FigCraft control connection on port {port}…");
         thread::spawn(move || {
             let result = FigCraftClient::new(port).check_connection()
-                .map(|windows| format!("FigCraft control connection is responding. Windows: {windows}"))
+                .map(|_| "FigCraft control connection is responding.".to_owned())
                 .map_err(|error| error.to_string());
             let _ = sender.send(BackgroundResult::Connection(result));
             repaint.request_repaint();
