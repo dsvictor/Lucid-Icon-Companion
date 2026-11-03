@@ -19,9 +19,15 @@ impl FigCraftClient {
     pub fn new(port: u16) -> Self { Self { address: SocketAddr::from(([127, 0, 0, 1], port)) } }
 
     pub fn launch(&self) -> Result<(), FigCraftError> {
+        // Reuse an already control-enabled instance. If FigCraft is running normally
+        // without the listener, ask Launch Services for a fresh app instance so the
+        // --control argument is not silently discarded by an already-running process.
+        if self.check_connection().is_ok() {
+            return Ok(());
+        }
         #[cfg(target_os = "macos")]
         {
-            Command::new("open").args(["-a", "FigCraft", "--args", "--control"])
+            Command::new("open").args(["-n", "-a", "FigCraft", "--args", "--control"])
                 .arg(self.address.port().to_string()).spawn().map(|_| ())
                 .map_err(|e| FigCraftError::Launch(e.to_string()))
         }
