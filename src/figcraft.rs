@@ -38,6 +38,26 @@ impl FigCraftClient {
         }
     }
 
+    pub fn inspect_and_render_selection(&self) -> Result<(Value, Vec<u8>), FigCraftError> {
+        let inspect = json!({
+            "id": NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            "method": "document.inspect",
+            "params": {"depth": 4, "outline": true}
+        });
+        let document = self.send(&inspect)?;
+        let render = json!({
+            "id": NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            "method": "ui.render",
+            "params": {"scale": 1.0}
+        });
+        let rendered = self.send(&render)?;
+        let encoded = rendered.get("data").and_then(Value::as_str)
+            .ok_or_else(|| FigCraftError::Response("FigCraft did not return PNG image data for the current selection.".into()))?;
+        let png = STANDARD.decode(encoded)
+            .map_err(|e| FigCraftError::Response(format!("invalid PNG data from FigCraft: {e}")))?;
+        Ok((document, png))
+    }
+
     pub fn check_connection(&self) -> Result<(), FigCraftError> {
         let request = json!({"id": NEXT_ID.fetch_add(1, Ordering::Relaxed), "method": "window.list", "params": {}});
         self.send(&request).map(|_| ())
