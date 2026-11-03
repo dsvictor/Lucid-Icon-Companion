@@ -39,7 +39,9 @@ impl FigCraftClient {
 
     pub fn insert_svg(&self, name: &str, svg: &str, x: Option<f64>, y: Option<f64>, center: bool) -> Result<String, FigCraftError> {
         let data = STANDARD.encode(svg.as_bytes());
-        let mut params = json!({"data": data, "name": name, "center": center});
+        // FigCraft detects SVG imports from the filename extension; file_stem(name) becomes the layer name.
+        let filename = format!("{name}.svg");
+        let mut params = json!({"data": data, "name": filename, "center": center});
         if let Some(x) = x { params["x"] = json!(x); }
         if let Some(y) = y { params["y"] = json!(y); }
         let request = json!({
