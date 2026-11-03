@@ -238,7 +238,7 @@ impl eframe::App for CompanionApp {
             });
         });
 
-        egui::Panel::bottom("status").show(ctx, |ui| {
+        egui::Panel::bottom("status").show(root_ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label(&self.status);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -247,7 +247,7 @@ impl eframe::App for CompanionApp {
             });
         });
 
-        egui::Panel::left("icon_browser").resizable(true).default_size(320.0).show(ctx, |ui| {
+        egui::Panel::left("icon_browser").resizable(true).default_size(320.0).show(root_ui, |ui| {
             ui.heading("Icon library");
             let search_response = ui.add(egui::TextEdit::singleline(&mut self.query)
                 .hint_text("Search names and tags…").desired_width(f32::INFINITY));
@@ -351,7 +351,7 @@ impl eframe::App for CompanionApp {
             );
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(root_ui, |ui| {
             if let Some(icon) = self.selected_icon() {
                 ui.horizontal(|ui| {
                     ui.heading(&icon.name);
