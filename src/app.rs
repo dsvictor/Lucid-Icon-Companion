@@ -322,7 +322,7 @@ impl eframe::App for CompanionApp {
             });
         });
 
-        egui::TopBottomPanel::bottom("catalogue_footer")
+        egui::Panel::bottom("catalogue_footer")
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill).inner_margin(egui::Margin::symmetric(12, 5)))
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
