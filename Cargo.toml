@@ -1,0 +1,18 @@
+[package]
+name = "lucid-icon-companion"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jayanta"]
+description = "A native macOS companion for browsing Lucide icons and inserting SVGs into FigCraft."
+license = "MIT"
+
+[dependencies]
+eframe = { version = "0.29", features = ["wgpu"] }
+egui = "0.29"
+egui_extras = { version = "0.29", features = ["all_loaders"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+directories = "5"
+ureq = { version = "2", features = ["json"] }
+base64 = "0.22"
