@@ -372,24 +372,26 @@ impl eframe::App for CompanionApp {
                         );
                         ui.add_space(gap);
                         let groups = self.available_groups();
+                        let selected_filter = match self.view {
+                            LibraryView::Favorites => "Favorites",
+                            LibraryView::Recent => "Recent",
+                            LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
+                        };
                         egui::ComboBox::from_id_salt("tag_group_filter")
-                            .selected_text(self.group.as_deref().unwrap_or("All categories"))
+                            .selected_text(selected_filter)
                             .width(category_width)
                             .show_ui(ui, |ui| {
                                 ui.set_min_width(210.0);
+                                ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
+                                ui.selectable_value(&mut self.view, LibraryView::Favorites, "Favorites");
+                                ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
+                                ui.separator();
                                 ui.selectable_value(&mut self.group, None, "All categories");
                                 ui.separator();
                                 for group in &groups {
                                     ui.selectable_value(&mut self.group, Some(group.clone()), group);
                                 }
                             });
-                    });
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 14.0;
-                        ui.selectable_value(&mut self.view, LibraryView::All, egui::RichText::new("All").size(13.0));
-                        ui.selectable_value(&mut self.view, LibraryView::Favorites, egui::RichText::new("☆").size(15.0));
-                        ui.selectable_value(&mut self.view, LibraryView::Recent, egui::RichText::new("Recent").size(13.0));
                     });
                     ui.add_space(2.0);
                     let names = self.filtered_icon_names();
