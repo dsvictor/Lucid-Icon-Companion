@@ -222,16 +222,16 @@ impl eframe::App for CompanionApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
-        egui::TopBottomPanel::top("header").show(ctx, |ui| {
+        egui::TopBottomPanel::top("header").show(&ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Lucide Companion");
                 ui.label("for FigCraft");
                 ui.separator();
                 if ui.add_enabled(!self.loading, egui::Button::new("Update catalogue")).clicked() {
-                    self.update_catalogue(ctx);
+                    self.update_catalogue(&ctx);
                 }
                 if ui.button("Launch FigCraft").clicked() { self.launch_figcraft(); }
-                if ui.button("Test connection").clicked() { self.check_figcraft(ctx); }
+                if ui.button("Test connection").clicked() { self.check_figcraft(&ctx); }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label("by Jayanta");
                 });
@@ -321,7 +321,7 @@ impl eframe::App for CompanionApp {
                                     |ui| {
                                         if !self.grid_previews.contains_key(name) {
                                             if let Some(svg) = icon_svg.as_deref() {
-                                                if let Some(texture) = Self::render_preview(ctx, svg, &format!("grid-{name}")) {
+                                                if let Some(texture) = Self::render_preview(&ctx, svg, &format!("grid-{name}")) {
                                                     self.grid_previews.insert(name.clone(), texture);
                                                 }
                                             }
@@ -393,7 +393,7 @@ impl eframe::App for CompanionApp {
                 let key = format!("{}-{}-{}-{}-{}", icon.name, self.settings.icon_size,
                     self.settings.stroke_width, self.settings.stroke_color, self.settings.fill_color);
                 if self.preview.as_ref().map(|(cached, _)| cached) != Some(&key) {
-                    self.preview = Self::render_preview(ctx, &svg, &key).map(|texture| (key.clone(), texture));
+                    self.preview = Self::render_preview(&ctx, &svg, &key).map(|texture| (key.clone(), texture));
                 }
                 ui.add_space(10.0);
                 if let Some((_, texture)) = &self.preview {
@@ -421,7 +421,7 @@ impl eframe::App for CompanionApp {
                 }
                 ui.horizontal(|ui| {
                     if ui.add_enabled(!self.importing, egui::Button::new("Insert into FigCraft")).clicked() {
-                        self.insert_into_figcraft(&icon, ctx);
+                        self.insert_into_figcraft(&icon, &ctx);
                     }
                     if ui.button("Export SVG…").clicked() { self.export_svg(&icon.name, &svg); }
                     if ui.button("Copy SVG").clicked() {
@@ -439,7 +439,7 @@ impl eframe::App for CompanionApp {
             }
         });
     }
-}}
+}
 
 
 #[cfg(test)]
