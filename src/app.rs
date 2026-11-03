@@ -86,9 +86,9 @@ impl CompanionApp {
         let stroke = safe_hex_color(&self.settings.stroke_color).unwrap_or("#000000");
         let fill = safe_hex_color(&self.settings.fill_color);
         let svg = icon.svg.replace("currentColor", stroke)
-            .replace("stroke-width=\\"2\\"", &format!("stroke-width=\\"{}\\"", self.settings.stroke_width));
+            .replace("stroke-width=\"2\"", &format!("stroke-width=\"{}\"", self.settings.stroke_width));
         match fill {
-            Some(color) => svg.replace("fill=\\"none\\"", &format!("fill=\\"{color}\\"")),
+            Some(color) => svg.replace("fill=\"none\"", &format!("fill=\"{color}\"")),
             None => svg,
         }
     }
