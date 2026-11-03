@@ -295,6 +295,12 @@ impl eframe::App for CompanionApp {
                     });
                     ui.horizontal(|ui| {
                         ui.checkbox(&mut self.settings.center_on_view, "Center in viewport");
+                        if !self.settings.center_on_view {
+                            ui.horizontal(|ui| {
+                                ui.label("X"); ui.add(egui::DragValue::new(&mut self.settings.import_x).speed(1.0));
+                                ui.label("Y"); ui.add(egui::DragValue::new(&mut self.settings.import_y).speed(1.0));
+                            });
+                        }
                         if ui.button("Export SVG…").clicked() {
                             let svg = self.styled_svg(&icon);
                             self.export_svg(&icon.name, &svg);
@@ -302,7 +308,7 @@ impl eframe::App for CompanionApp {
                     });
                 });
             } else {
-                ui.label(egui::RichText::new("Select an icon · double-click to insert").small().weak());
+                ui.label(egui::RichText::new("Click an icon to insert it into FigCraft").small().weak());
             }
 
             ui.separator();
@@ -345,13 +351,11 @@ impl eframe::App for CompanionApp {
                                             [cell_width - 4.0, 22.0],
                                             egui::Button::selectable(selected, name),
                                         );
-                                        if response.double_clicked() {
+                                        if response.clicked() {
                                             self.select_icon(name);
                                             if let Some(icon) = self.selected_icon() {
                                                 self.insert_into_figcraft(&icon, &ctx);
                                             }
-                                        } else if response.clicked() {
-                                            self.select_icon(name);
                                         }
                                     },
                                 );
