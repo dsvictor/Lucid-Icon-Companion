@@ -318,10 +318,13 @@ impl eframe::App for CompanionApp {
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
             #[cfg(target_os = "macos")]
-            #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
-                ui.add_space(96.0);
-                ui.label(egui::RichText::new("Lucide icon").size(14.0).strong().color(egui::Color32::from_gray(235)));
+                // Place the title on the same horizontal line as the traffic lights.
+                ui.add_space(60.0);
+                ui.label(egui::RichText::new("Lucide icon")
+                    .font(egui::FontId::proportional(16.0))
+                    .strong()
+                    .color(egui::Color32::from_gray(242)));
             });
             ui.add_space(2.0);
             ui.horizontal(|ui| {
@@ -417,9 +420,9 @@ impl eframe::App for CompanionApp {
                         egui::ComboBox::from_id_salt("tag_group_filter")
                             .selected_text(selected_filter)
                             .width(category_width)
+                            .height(560.0)
                             .show_ui(ui, |ui| {
                                 ui.set_min_width(232.0);
-                                ui.set_max_height(500.0);
                                 ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
                                 ui.selectable_value(&mut self.view, LibraryView::Favorites, "Favorites");
                                 ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
