@@ -319,7 +319,7 @@ impl eframe::App for CompanionApp {
                                     ui.label(egui::RichText::new("⌕").size(19.0).color(egui::Color32::from_gray(225)));
                                     let edit = egui::TextEdit::singleline(&mut self.query)
                                         .hint_text("Search icons")
-                                        .frame(false)
+                                        .frame(egui::Frame::NONE)
                                         .desired_width((search_width - 62.0).max(50.0));
                                     ui.add(edit);
                                     if !self.query.is_empty() && ui.small_button("×").clicked() {
