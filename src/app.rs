@@ -231,7 +231,8 @@ impl eframe::App for CompanionApp {
                     if ui.add_enabled(!self.loading, egui::Button::new("↻")).on_hover_text("Update icon library").clicked() {
                         self.update_catalogue(&ctx);
                     }
-                    if ui.button("FigCraft").clicked() { self.launch_figcraft(); }
+                    if ui.button("Test").clicked() { self.check_figcraft(&ctx); }
+                    if ui.button("Open FigCraft").clicked() { self.launch_figcraft(); }
                 });
             });
         });
