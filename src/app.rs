@@ -328,8 +328,7 @@ impl eframe::App for CompanionApp {
             });
             ui.add_space(2.0);
             ui.horizontal(|ui| {
-                #[cfg(target_os = "macos")]
-                ui.add_space(96.0);
+                // Keep navigation aligned with the left edge of the content area.
                 ui.spacing_mut().item_spacing.x = 18.0;
                 ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icons").size(14.0));
                 ui.selectable_value(&mut self.tab, MainTab::Settings, egui::RichText::new("Settings").size(14.0));
@@ -382,7 +381,7 @@ impl eframe::App for CompanionApp {
                                 ui.spacing_mut().item_spacing.x = 7.0;
                                 // Draw the magnifier with vector primitives so it renders on every system font.
                                 let (search_icon_rect, _) = ui.allocate_exact_size(
-                                    egui::vec2(22.0, 27.0), egui::Sense::hover());
+                                    egui::vec2(22.0, 34.0), egui::Sense::hover());
                                 let search_center = egui::pos2(
                                     search_icon_rect.center().x - 2.0,
                                     search_icon_rect.center().y - 2.0,
@@ -398,14 +397,14 @@ impl eframe::App for CompanionApp {
                                 // changes the toolbar width or pushes the category picker offscreen.
                                 let clear_slot_width = 22.0_f32;
                                 let text_width = (ui.available_width() - clear_slot_width - 4.0).max(40.0);
-                                let response = ui.add_sized(
-                                    [text_width, 27.0],
+                                let _response = ui.add_sized(
+                                    [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
                                         .hint_text("search")
                                         .frame(egui::Frame::NONE),
                                 );
-                                let clear_slot = ui.allocate_ui_with_layout(
-                                    egui::vec2(clear_slot_width, 27.0),
+                                let _clear_slot = ui.allocate_ui_with_layout(
+                                    egui::vec2(clear_slot_width, 34.0),
                                     egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
                                     |ui| {
                                         if self.query.is_empty() {
@@ -415,12 +414,7 @@ impl eframe::App for CompanionApp {
                                         }
                                     },
                                 );
-                                let _ = clear_slot;
-                                let line_y = response.rect.bottom() + 3.0;
-                                ui.painter().line_segment(
-                                    [egui::pos2(response.rect.left(), line_y), egui::pos2(response.rect.right(), line_y)],
-                                    egui::Stroke::new(1.0, egui::Color32::from_gray(78)),
-                                );
+
                             },
                         );
                         ui.add_space(gap);
