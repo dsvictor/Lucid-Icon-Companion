@@ -130,22 +130,42 @@ fn token_score(term: &str, words: &[&str], full: &str) -> Option<i32> {
     None
 }
 
+fn field_score(term: &str, words: &[&str], full: &str, name_field: bool) -> i32 {
+    let exact = if name_field { 160 } else { 78 };
+    let prefix = if name_field { 138 } else { 58 };
+    let contains = if name_field { 112 } else { 38 };
+    let fuzzy = if name_field { 76 } else { 24 };
+    if full == term { return exact + 20; }
+    if words.iter().any(|word| *word == term) { return exact; }
+    if full.starts_with(term) || words.iter().any(|word| word.starts_with(term)) { return prefix; }
+    if term.chars().count() >= 4 && (full.contains(term) || words.iter().any(|word| word.contains(term))) {
+        return contains;
+    }
+    if term.chars().count() >= 4 && words.iter().any(|word| edit_distance_at_most_one(term, word)) {
+        return fuzzy;
+    }
+    0
+}
+
 pub fn search<'a>(icons: &'a [Icon], query: &str) -> Vec<&'a Icon> {
     let terms: Vec<String> = query.split_whitespace().map(|part| part.to_lowercase()).collect();
     if terms.is_empty() { return icons.iter().collect(); }
-    let mut ranked: Vec<(i32, usize, &Icon)> = icons.iter().enumerate().filter_map(|(index, icon)| {
+    let mut ranked: Vec<(i32, usize, &'a Icon)> = icons.iter().enumerate().filter_map(|(index, icon)| {
         let name = icon.name.to_lowercase().replace('-', " ");
+        let name_words: Vec<&str> = name.split_whitespace().collect();
         let tags = icon.tags.iter().filter(|tag| !tag.starts_with("$group:"))
-            .map(|tag| tag.to_lowercase()).collect::<Vec<_>>().join(" ");
-        let full = format!("{name} {tags}");
-        let words: Vec<&str> = full.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
-        let mut score = 0;
+            .map(|tag| tag.to_lowercase()).collect::<Vec<_>>();
+        let tag_words: Vec<&str> = tags.iter().flat_map(|tag| tag.split_whitespace()).collect();
+        let tag_text = tags.join(" ");
+        let mut total = 0;
         for term in &terms {
-            let term_score = token_score(term, &words, &full)?;
-            score += term_score;
+            let name_score = field_score(term, &name_words, &name, true);
+            let tag_score = field_score(term, &tag_words, &tag_text, false);
+            let best = name_score.max(tag_score);
+            if best == 0 { return None; }
+            total += best;
         }
-        if name.contains(&terms[0]) { score += 12; }
-        Some((score, index, icon))
+        Some((total, index, icon))
     }).collect();
     ranked.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
     ranked.into_iter().map(|(_, _, icon)| icon).collect()
