@@ -300,9 +300,9 @@ impl eframe::App for CompanionApp {
                     }
                 });
                 if let Some((details, texture)) = &self.host_context {
-                    ui.add(egui::Image::new((texture.id(), egui::vec2(180.0, 120.0))).fit_to_original_size(egui::SizeHint::Scale(1.0)));
+                    ui.add(egui::Image::new((texture.id(), egui::vec2(180.0, 120.0))));
                     egui::ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
-                        ui.add(egui::TextEdit::multiline(&mut details.as_str()).desired_width(f32::INFINITY).desired_rows(5).interactive(false));
+                        ui.label(egui::RichText::new(details).monospace().small());
                     });
                 } else {
                     ui.label(egui::RichText::new("Inspect the active FigCraft document to preview its current selection here.").small().weak());
