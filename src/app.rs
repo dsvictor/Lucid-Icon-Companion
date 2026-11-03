@@ -320,6 +320,7 @@ impl eframe::App for CompanionApp {
             ("refresh", include_str!("../assets/refresh.svg")),
             ("open", include_str!("../assets/open_in_figcraft.svg")),
             ("dropdown", include_str!("../assets/dropdown.svg")),
+            ("cancel", include_str!("../assets/cancel.svg")),
         ] {
             if !self.chrome_icons.contains_key(key) {
                 let svg = source.replace("#FF0000", "#bdbdbd");
@@ -336,8 +337,9 @@ impl eframe::App for CompanionApp {
             ui.horizontal(|ui| {
                 // Place the title on the same horizontal line as the traffic lights.
                 ui.add_space(68.0);
+                ui.add_space(5.0);
                 ui.label(egui::RichText::new("Lucide Icon")
-                    .font(egui::FontId::proportional(14.0))
+                    .font(egui::FontId::proportional(15.0))
                     .strong()
                     .color(egui::Color32::from_gray(242)));
             });
@@ -353,9 +355,9 @@ impl eframe::App for CompanionApp {
                 ] {
                     let selected = self.tab == tab;
                     let text = if selected {
-                        egui::RichText::new(label).size(12.0).strong().color(egui::Color32::from_gray(245))
+                        egui::RichText::new(label).size(12.5).strong().color(egui::Color32::from_gray(245))
                     } else {
-                        egui::RichText::new(label).size(12.0).color(egui::Color32::from_gray(165))
+                        egui::RichText::new(label).size(12.5).strong().color(egui::Color32::from_gray(165))
                     };
                     if ui.add(egui::Label::new(text).sense(egui::Sense::click())).clicked() {
                         self.tab = tab;
@@ -385,7 +387,7 @@ impl eframe::App for CompanionApp {
                         let (rect, response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
                             if self.loading { egui::Sense::hover() } else { egui::Sense::click() });
                         if let Some(texture) = self.chrome_icons.get("refresh") {
-                            ui.painter().image(texture.id(), egui::Rect::from_center_size(rect.center(), egui::vec2(18.0, 18.0)),
+                            ui.painter().image(texture.id(), egui::Rect::from_center_size(rect.center(), egui::vec2(15.0, 15.0)),
                                 egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
                         }
                         if response.on_hover_text("Update Lucide catalogue").clicked() && !self.loading {
@@ -404,10 +406,11 @@ impl eframe::App for CompanionApp {
                     ui.add_space(8.0);
                     // Minimal search toolbar based on the supplied Lucide mockup.
                     ui.horizontal(|ui| {
-                        let category_width = 84.0_f32;
+                        let category_width = 136.0_f32;
                         let gap = 8.0_f32;
+                        let right_inset = 12.0_f32;
                         ui.add_space(14.0);
-                        let available = ui.available_width();
+                        let available = (ui.available_width() - right_inset).max(1.0);
                         let search_width = (available - category_width - gap).max(112.0);
                         ui.allocate_ui_with_layout(
                             egui::vec2(search_width, 34.0),
@@ -435,7 +438,8 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
-                                        .font(egui::FontId::proportional(12.0))
+                                        .font(egui::FontId::proportional(14.0))
+                                        .vertical_align(egui::Align::Center)
                                         .hint_text("Search")
                                         .frame(egui::Frame::NONE),
                                 );
@@ -445,8 +449,17 @@ impl eframe::App for CompanionApp {
                                     |ui| {
                                         if self.query.is_empty() {
                                             ui.add_space(clear_slot_width);
-                                        } else if ui.small_button("×").clicked() {
-                                            self.query.clear();
+                                        } else {
+                                            let (rect, response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::click());
+                                            if let Some(texture) = self.chrome_icons.get("cancel") {
+                                                ui.painter().image(texture.id(),
+                                                    egui::Rect::from_center_size(rect.center(), egui::vec2(13.0, 13.0)),
+                                                    egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                                                    egui::Color32::from_gray(185));
+                                            }
+                                            if response.on_hover_text("Clear search").clicked() {
+                                                self.query.clear();
+                                            }
                                         }
                                     },
                                 );
@@ -461,7 +474,7 @@ impl eframe::App for CompanionApp {
                             LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
                         };
                         egui::ComboBox::from_id_salt("tag_group_filter")
-                            .selected_text(egui::RichText::new(selected_filter).size(12.0).strong())
+                            .selected_text(egui::RichText::new(selected_filter).size(12.5).strong())
                             .width(category_width)
                             .height(560.0)
                             .icon({
@@ -487,6 +500,7 @@ impl eframe::App for CompanionApp {
                                     ui.selectable_value(&mut self.group, Some(group.clone()), group);
                                 }
                             });
+                        ui.add_space(right_inset);
                     });
                     ui.add_space(2.0);
                     let names = self.filtered_icon_names();
