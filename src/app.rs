@@ -134,7 +134,7 @@ impl CompanionApp {
                 LibraryView::Recent => self.settings.recent.iter().any(|name| name == &icon.name),
             })
             .filter(|icon| self.group.as_ref().map_or(true, |group| {
-                let key = group.to_lowercase().replace(" & ", " ").replace(['-', ' '], "");
+                let key = group.to_lowercase().replace(" & ", " ").replace('-', "").replace(' ', "");
                 let metadata_match = icon.tags.iter().any(|tag| {
                     tag.strip_prefix("$group:").map(|value| value.eq_ignore_ascii_case(group)).unwrap_or(false)
                 });
