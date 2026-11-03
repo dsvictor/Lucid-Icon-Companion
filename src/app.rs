@@ -29,7 +29,7 @@ impl CompanionApp {
             else { format!("Ready · {} cached icons", icons.len()) };
         let (tx, rx) = mpsc::channel();
         let (action_tx, action_rx) = mpsc::channel();
-        Self { settings, query: String::new(), icons, selected: None, view: LibraryView::All, status,
+        Self { settings, query: String::new(), icons, selected: None, view: LibraryView::All, group: None, status,
             loading: false, importing: false, tx, rx, action_tx, action_rx, preview: None }
     }
 
@@ -164,7 +164,10 @@ impl eframe::App for CompanionApp {
 
         egui::SidePanel::left("icon_browser").resizable(true).default_width(310.0).show(ctx, |ui| {
             ui.heading("Icon library");
-            ui.add(egui::TextEdit::singleline(&mut self.query).hint_text("Search names and tags…").desired_width(f32::INFINITY));
+            let search_response = ui.add(egui::TextEdit::singleline(&mut self.query).hint_text("Search names and tags…").desired_width(f32::INFINITY));
+            if ui.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F)) {
+                search_response.request_focus();
+            }
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.view, LibraryView::All, "All");
                 ui.selectable_value(&mut self.view, LibraryView::Favorites, "★ Favorites");
@@ -197,7 +200,10 @@ impl eframe::App for CompanionApp {
                         self.settings.toggle_favorite(&icon.name); let _ = self.settings.save();
                     }
                 });
-                ui.label(if icon.tags.is_empty() { "No upstream tags available".to_owned() } else { icon.tags.join(" · ") });
+                let visible_tags: Vec<&str> = icon.tags.iter().filter(|tag| !tag.starts_with("$group:")).map(String::as_str).collect();
+                let group_tags: Vec<&str> = icon.tags.iter().filter_map(|tag| tag.strip_prefix("$group:")).collect();
+                ui.label(if visible_tags.is_empty() { "No descriptive tags supplied upstream".to_owned() } else { visible_tags.join(" · ") });
+                if !group_tags.is_empty() { ui.label(format!("Groups: {}", group_tags.join(" · "))); }
                 ui.separator();
                 ui.collapsing("Appearance", |ui| {
                     ui.add(egui::Slider::new(&mut self.settings.icon_size, 24.0..=320.0).text("Preview size"));
