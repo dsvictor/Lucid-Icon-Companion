@@ -88,7 +88,7 @@ impl CompanionApp {
         let stroke = safe_hex_color(&self.settings.stroke_color).unwrap_or("#000000");
         let fill = safe_hex_color(&self.settings.fill_color);
         let svg = icon.svg.replace("currentColor", stroke)
-            .replace("stroke-width=\"2\"", &format!("stroke-width=\"{}\"", self.settings.stroke_width));
+            .replace("stroke-width=\"2\"", &format!("stroke-width=\"{}\"", if self.settings.stroke_width.is_finite() { self.settings.stroke_width.clamp(0.5, 4.0) } else { 2.0 }));
         match fill {
             Some(color) => svg.replace("fill=\"none\"", &format!("fill=\"{color}\"")),
             None => svg,
@@ -191,7 +191,8 @@ impl CompanionApp {
 }
 
 impl eframe::App for CompanionApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = root_ui.ctx();
         if let Ok(result) = self.catalogue_rx.try_recv() {
             self.loading = false;
             match result {
@@ -292,7 +293,9 @@ impl eframe::App for CompanionApp {
 
             // Virtualized thumbnail grid: only rows visible in the scroll viewport
             // are rasterized, keeping the full Lucide catalogue responsive.
-            let available_width = ui.available_width().max(1.0);
+            let available_width = if ui.available_width().is_finite() {
+                ui.available_width().clamp(1.0, 4096.0)
+            } else { 320.0 };
             let cell_width = 92.0_f32;
             let columns = ((available_width / cell_width).floor() as usize).max(1);
             let row_height = 88.0_f32;
@@ -380,7 +383,10 @@ impl eframe::App for CompanionApp {
                 ui.add_space(10.0);
                 if let Some((_, texture)) = &self.preview {
                     ui.centered_and_justified(|ui| {
-                        let size = egui::Vec2::splat(self.settings.icon_size);
+                        let preview_size = if self.settings.icon_size.is_finite() {
+                            self.settings.icon_size.clamp(24.0, 320.0)
+                        } else { 96.0 };
+                        let size = egui::Vec2::splat(preview_size);
                         ui.add(egui::Image::new((texture.id(), size)));
                     });
                 } else { ui.label("SVG preview could not be rendered."); }
