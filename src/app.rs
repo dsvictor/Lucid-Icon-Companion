@@ -334,11 +334,9 @@ impl eframe::App for CompanionApp {
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
             #[cfg(target_os = "macos")]
-            ui.horizontal(|ui| {
-                // Place the title on the same horizontal line as the traffic lights.
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::BOTTOM), |ui| {
+                // Keep the title's left position, but align its baseline lower with the traffic lights.
                 ui.add_space(68.0);
-                // Align the title's visual centre with the macOS traffic-light centres.
-                ui.add_space(14.0);
                 ui.label(egui::RichText::new("Lucide Icon")
                     .font(egui::FontId::proportional(15.0))
                     .strong()
@@ -379,7 +377,8 @@ impl eframe::App for CompanionApp {
         });
 
         egui::Panel::bottom("catalogue_footer")
-            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill).inner_margin(egui::Margin::symmetric(12, 5)))
+            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
+                .inner_margin(egui::Margin { left: 20, right: 18, top: 5, bottom: 5 }))
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
@@ -400,7 +399,7 @@ impl eframe::App for CompanionApp {
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
-                .inner_margin(egui::Margin::symmetric(16, 0)))
+                .inner_margin(egui::Margin { left: 20, right: 18, top: 0, bottom: 0 }))
             .show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
@@ -410,7 +409,7 @@ impl eframe::App for CompanionApp {
                         let category_width = 136.0_f32;
                         let gap = 8.0_f32;
                         let right_inset = 14.0_f32;
-                        ui.add_space(14.0);
+                        // Start the magnifier on the same left guide as the tabs and icon grid.
                         let available = (ui.available_width() - right_inset).max(1.0);
                         let search_width = (available - category_width - gap).max(112.0);
                         ui.allocate_ui_with_layout(
