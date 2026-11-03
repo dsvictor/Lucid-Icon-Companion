@@ -25,6 +25,7 @@ pub struct CompanionApp {
     action_tx: Sender<BackgroundResult>,
     action_rx: Receiver<BackgroundResult>,
     preview: Option<(String, egui::TextureHandle)>,
+    grid_previews: std::collections::HashMap<String, egui::TextureHandle>,
 }
 
 fn safe_hex_color(value: &str) -> Option<&str> {
@@ -53,6 +54,7 @@ impl CompanionApp {
             settings, query: String::new(), icons, selected: None, view: LibraryView::All,
             group: None, status, loading: false, importing: false,
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
+            grid_previews: std::collections::HashMap::new(),
         }
     }
 
@@ -197,6 +199,7 @@ impl eframe::App for CompanionApp {
                     self.icons = icons;
                     self.selected = None;
                     self.preview = None;
+                    self.grid_previews.clear();
                     self.status = format!("Lucide {version} · {} icons indexed with tags", self.icons.len());
                 }
                 Err(error) => self.status = format!("Catalogue update failed: {error}"),
@@ -287,19 +290,58 @@ impl eframe::App for CompanionApp {
                 }
             }
 
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                for name in names {
-                    let selected = self.selected.as_ref() == Some(&name);
-                    ui.horizontal(|ui| {
-                        if ui.selectable_label(selected, &name).clicked() { self.select_icon(&name); }
-                        let favorite = self.settings.is_favorite(&name);
-                        if ui.small_button(if favorite { "★" } else { "☆" }).clicked() {
-                            self.settings.toggle_favorite(&name);
-                            let _ = self.settings.save();
-                        }
-                    });
-                }
-            });
+            // Virtualized thumbnail grid: only rows visible in the scroll viewport
+            // are rasterized, keeping the full Lucide catalogue responsive.
+            let available_width = ui.available_width().max(1.0);
+            let cell_width = 92.0_f32;
+            let columns = ((available_width / cell_width).floor() as usize).max(1);
+            let row_height = 88.0_f32;
+            let row_count = names.len().div_ceil(columns);
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show_rows(
+                ui, row_height, row_count, |ui, row_range| {
+                    for row in row_range {
+                        ui.horizontal(|ui| {
+                            for column in 0..columns {
+                                let index = row * columns + column;
+                                let Some(name) = names.get(index) else { break; };
+                                let selected = self.selected.as_ref() == Some(name);
+                                let icon_svg = self.icons.iter()
+                                    .find(|icon| icon.name == *name)
+                                    .map(|icon| icon.svg.clone());
+                                ui.allocate_ui_with_layout(
+                                    egui::vec2(cell_width, row_height),
+                                    egui::Layout::top_down(egui::Align::Center),
+                                    |ui| {
+                                        if !self.grid_previews.contains_key(name) {
+                                            if let Some(svg) = icon_svg.as_deref() {
+                                                if let Some(texture) = Self::render_preview(ctx, svg, &format!("grid-{name}")) {
+                                                    self.grid_previews.insert(name.clone(), texture);
+                                                }
+                                            }
+                                        }
+                                        if let Some(texture) = self.grid_previews.get(name) {
+                                            ui.add(egui::Image::new((texture.id(), egui::vec2(32.0, 32.0))));
+                                        } else {
+                                            ui.add_space(32.0);
+                                        }
+                                        if ui.add_sized(
+                                            [cell_width - 4.0, 22.0],
+                                            egui::SelectableLabel::new(selected, name),
+                                        ).clicked() {
+                                            self.select_icon(name);
+                                        }
+                                        let favorite = self.settings.is_favorite(name);
+                                        if ui.small_button(if favorite { "★" } else { "☆" }).clicked() {
+                                            self.settings.toggle_favorite(name);
+                                            let _ = self.settings.save();
+                                        }
+                                    },
+                                );
+                            }
+                        });
+                    }
+                },
+            );
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
