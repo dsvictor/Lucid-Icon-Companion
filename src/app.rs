@@ -34,6 +34,7 @@ pub struct CompanionApp {
     grid_previews: std::collections::HashMap<String, egui::TextureHandle>,
     context_loading: bool,
     host_context: Option<(String, egui::TextureHandle)>,
+    chrome_icons: std::collections::HashMap<String, egui::TextureHandle>,
 }
 
 fn safe_hex_color(value: &str) -> Option<&str> {
@@ -84,6 +85,7 @@ impl CompanionApp {
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
             grid_previews: std::collections::HashMap::new(),
             context_loading: false, host_context: None,
+            chrome_icons: std::collections::HashMap::new(),
         }
     }
 
@@ -313,6 +315,19 @@ impl eframe::App for CompanionApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
+        // Rasterize the supplied SVG controls once and reuse their textures throughout the UI.
+        for (key, source) in [
+            ("refresh", include_str!("../assets/refresh.svg")),
+            ("open", include_str!("../assets/open_in_figcraft.svg")),
+            ("dropdown", include_str!("../assets/dropdown.svg")),
+        ] {
+            if !self.chrome_icons.contains_key(key) {
+                let svg = source.replace("#FF0000", "#bdbdbd");
+                if let Some(texture) = Self::render_preview(&ctx, &svg, &format!("chrome-{key}")) {
+                    self.chrome_icons.insert(key.to_owned(), texture);
+                }
+            }
+        }
         // One compact navigation row: keep the window chrome, remove the redundant in-app title bar.
         egui::Panel::top("navigation")
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
@@ -320,25 +335,40 @@ impl eframe::App for CompanionApp {
             #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
                 // Place the title on the same horizontal line as the traffic lights.
-                ui.add_space(74.0);
+                ui.add_space(68.0);
                 ui.label(egui::RichText::new("Lucide Icon")
-                    .font(egui::FontId::proportional(16.0))
+                    .font(egui::FontId::proportional(14.0))
                     .strong()
                     .color(egui::Color32::from_gray(242)));
             });
             ui.add_space(2.0);
             ui.horizontal(|ui| {
-                // Align the first tab with the search magnifier below.
-                ui.add_space(8.0);
-                ui.spacing_mut().item_spacing.x = 18.0;
-                ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icon").size(14.0));
-                ui.selectable_value(&mut self.tab, MainTab::Settings, egui::RichText::new("Settings").size(14.0));
-                ui.selectable_value(&mut self.tab, MainTab::Info, egui::RichText::new("Info").size(14.0));
+                // Match the reference: compact tabs begin on the same inset as the search row.
+                ui.add_space(22.0);
+                ui.spacing_mut().item_spacing.x = 14.0;
+                for (tab, label) in [
+                    (MainTab::Icons, "Icon"),
+                    (MainTab::Settings, "Settings"),
+                    (MainTab::Info, "Info"),
+                ] {
+                    let selected = self.tab == tab;
+                    let text = if selected {
+                        egui::RichText::new(label).size(12.0).strong().color(egui::Color32::from_gray(245))
+                    } else {
+                        egui::RichText::new(label).size(12.0).color(egui::Color32::from_gray(165))
+                    };
+                    if ui.add(egui::Label::new(text).sense(egui::Sense::click())).clicked() {
+                        self.tab = tab;
+                    }
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(14.0);
-                    let open_figcraft = ui.add(egui::Button::new("↗").frame(false))
-                        .on_hover_text("Open FigCraft with control enabled");
-                    if open_figcraft.clicked() {
+                    let (rect, response) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::click());
+                    if let Some(texture) = self.chrome_icons.get("open") {
+                        ui.painter().image(texture.id(), egui::Rect::from_center_size(rect.center(), egui::vec2(14.0, 14.0)),
+                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+                    }
+                    if response.on_hover_text("Open FigCraft with control enabled").clicked() {
                         self.launch_figcraft();
                     }
                 });
@@ -352,10 +382,13 @@ impl eframe::App for CompanionApp {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
                         .size(11.5).underline().color(egui::Color32::from_gray(175)));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let refresh = ui.add_enabled(!self.loading, egui::Button::new(
-                            egui::RichText::new("⟳").size(18.0).color(egui::Color32::from_gray(190))
-                        ).frame(false));
-                        if refresh.on_hover_text("Update Lucide catalogue").clicked() {
+                        let (rect, response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
+                            if self.loading { egui::Sense::hover() } else { egui::Sense::click() });
+                        if let Some(texture) = self.chrome_icons.get("refresh") {
+                            ui.painter().image(texture.id(), egui::Rect::from_center_size(rect.center(), egui::vec2(18.0, 18.0)),
+                                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+                        }
+                        if response.on_hover_text("Update Lucide catalogue").clicked() && !self.loading {
                             self.update_catalogue(&ctx);
                         }
                     });
@@ -371,8 +404,9 @@ impl eframe::App for CompanionApp {
                     ui.add_space(8.0);
                     // Minimal search toolbar based on the supplied Lucide mockup.
                     ui.horizontal(|ui| {
-                        let category_width = 146.0_f32;
-                        let gap = 10.0_f32;
+                        let category_width = 84.0_f32;
+                        let gap = 8.0_f32;
+                        ui.add_space(14.0);
                         let available = ui.available_width();
                         let search_width = (available - category_width - gap).max(112.0);
                         ui.allocate_ui_with_layout(
@@ -401,6 +435,7 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
+                                        .font(egui::FontId::proportional(12.0))
                                         .hint_text("Search")
                                         .frame(egui::Frame::NONE),
                                 );
@@ -426,9 +461,20 @@ impl eframe::App for CompanionApp {
                             LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
                         };
                         egui::ComboBox::from_id_salt("tag_group_filter")
-                            .selected_text(selected_filter)
+                            .selected_text(egui::RichText::new(selected_filter).size(12.0).strong())
                             .width(category_width)
                             .height(560.0)
+                            .icon({
+                                let dropdown_id = self.chrome_icons.get("dropdown").map(|texture| texture.id());
+                                move |ui, rect, visuals, _is_open| {
+                                    if let Some(texture_id) = dropdown_id {
+                                        let image_rect = egui::Rect::from_center_size(rect.center(), egui::vec2(12.0, 12.0));
+                                        ui.painter().image(texture_id, image_rect,
+                                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                                            visuals.fg_stroke.color);
+                                    }
+                                }
+                            })
                             .show_ui(ui, |ui| {
                                 ui.set_min_width(232.0);
                                 ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
