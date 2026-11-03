@@ -318,7 +318,13 @@ impl eframe::App for CompanionApp {
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
             #[cfg(target_os = "macos")]
-            ui.add_space(30.0);
+            ui.add_space(28.0);
+            #[cfg(target_os = "macos")]
+            ui.horizontal(|ui| {
+                ui.add_space(76.0);
+                ui.label(egui::RichText::new("Lucide icon").size(13.0).strong().color(egui::Color32::from_gray(225)));
+            });
+            ui.add_space(3.0);
             ui.horizontal(|ui| {
                 #[cfg(target_os = "macos")]
                 ui.add_space(76.0);
@@ -329,6 +335,7 @@ impl eframe::App for CompanionApp {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let open_figcraft = ui.add(egui::Button::new("↗").frame(false))
                         .on_hover_text("Open FigCraft with control enabled");
+                    ui.add_space(10.0);
                     if open_figcraft.clicked() {
                         self.launch_figcraft();
                     }
@@ -341,7 +348,7 @@ impl eframe::App for CompanionApp {
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
-                        .small().underline().color(egui::Color32::from_gray(155)));
+                        .size(11.5).underline().color(egui::Color32::from_gray(175)));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let refresh = ui.add_enabled(!self.loading, egui::Button::new(
                             egui::RichText::new("⟳").size(18.0).color(egui::Color32::from_gray(190))
@@ -355,7 +362,7 @@ impl eframe::App for CompanionApp {
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
-                .inner_margin(egui::Margin::symmetric(12, 0)))
+                .inner_margin(egui::Margin::symmetric(16, 0)))
             .show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
@@ -413,6 +420,7 @@ impl eframe::App for CompanionApp {
                             .width(category_width)
                             .show_ui(ui, |ui| {
                                 ui.set_min_width(210.0);
+                                ui.set_max_height(560.0);
                                 ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
                                 ui.selectable_value(&mut self.view, LibraryView::Favorites, "Favorites");
                                 ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
