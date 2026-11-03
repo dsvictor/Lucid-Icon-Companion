@@ -1,51 +1,117 @@
-use std::{io::{BufRead, BufReader, Write}, net::{SocketAddr, TcpStream}, path::Path, process::Command, time::Duration};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use serde_json::{json, Value};
+use std::{
+    io::{BufRead, BufReader, Write},
+    net::{SocketAddr, TcpStream},
+    process::Command,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
+
+static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, thiserror::Error)]
 pub enum FigCraftError {
     #[error("Could not launch FigCraft: {0}")]
     Launch(String),
-    #[error("Could not connect to FigCraft control socket: {0}")]
+    #[error("Could not connect to FigCraft: {0}")]
     Connect(String),
-    #[error("Could not send command: {0}")]
+    #[error("Control socket I/O failed: {0}")]
     Io(String),
-    #[error("FigCraft returned an unexpected response: {0}")]
+    #[error("FigCraft rejected the command: {0}")]
+    Rejected(String),
+    #[error("FigCraft returned an invalid response: {0}")]
     Response(String),
 }
 
-pub struct FigCraftClient { address: SocketAddr }
+pub struct FigCraftClient {
+    address: SocketAddr,
+}
 
 impl FigCraftClient {
     pub fn new(port: u16) -> Self {
-        Self { address: SocketAddr::from(([127, 0, 0, 1], port)) }
+        Self {
+            address: SocketAddr::from(([127, 0, 0, 1], port)),
+        }
     }
 
-    pub fn launch(&self, app_path: Option<&Path>) -> Result<(), FigCraftError> {
-        let mut command = if cfg!(target_os = "macos") {
-            let mut c = Command::new("open");
-            c.arg("-a").arg(app_path.unwrap_or(Path::new("FigCraft")));
-            c.arg("--args").arg("--control").arg(self.address.port().to_string());
-            c
-        } else {
-            let mut c = Command::new(app_path.unwrap_or(Path::new("figcraft")));
-            c.arg("--control").arg(self.address.port().to_string());
-            c
-        };
-        command.spawn().map(|_| ()).map_err(|e| FigCraftError::Launch(e.to_string()))
+    /// Launch the macOS application with FigCraft's loopback control listener enabled.
+    pub fn launch(&self) -> Result<(), FigCraftError> {
+        #[cfg(target_os = "macos")]
+        {
+            Command::new("open")
+                .args(["-a", "FigCraft", "--args", "--control"])
+                .arg(self.address.port().to_string())
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| FigCraftError::Launch(e.to_string()))
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            Command::new("figcraft")
+                .arg("--control")
+                .arg(self.address.port().to_string())
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| FigCraftError::Launch(e.to_string()))
+        }
     }
 
-    /// Sends one newline-delimited JSON command and returns the response line.
-    /// The exact method and payload must be validated against the installed FigCraft
-    /// control-protocol version before release.
-    pub fn send_json(&self, command: &serde_json::Value) -> Result<String, FigCraftError> {
-        let mut stream = TcpStream::connect_timeout(&self.address, Duration::from_secs(2))
+    /// Insert an SVG as editable geometry. With no x/y, FigCraft uses the current
+    /// viewport centre; center=true centres the imported frame on that point.
+    pub fn insert_svg(&self, name: &str, svg: &str) -> Result<String, FigCraftError> {
+        let request_id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let data = STANDARD.encode(svg.as_bytes());
+        let request = json!({
+            "id": request_id,
+            "method": "engine.execute",
+            "params": {
+                "command": "file.import",
+                "params": {
+                    "data": data,
+                    "name": format!("{name}.svg"),
+                    "center": true
+                }
+            }
+        });
+
+        let response = self.send(&request)?;
+        Ok(response.to_string())
+    }
+
+    fn send(&self, request: &Value) -> Result<Value, FigCraftError> {
+        let mut stream = TcpStream::connect_timeout(&self.address, Duration::from_secs(3))
             .map_err(|e| FigCraftError::Connect(e.to_string()))?;
-        stream.set_read_timeout(Some(Duration::from_secs(5))).ok();
-        stream.write_all(format!("{}\n", command).as_bytes())
+        stream
+            .set_read_timeout(Some(Duration::from_secs(60)))
             .map_err(|e| FigCraftError::Io(e.to_string()))?;
-        let mut reader = BufReader::new(stream);
-        let mut response = String::new();
-        reader.read_line(&mut response).map_err(|e| FigCraftError::Io(e.to_string()))?;
-        if response.is_empty() { return Err(FigCraftError::Response("empty response".into())); }
-        Ok(response)
+        stream
+            .set_write_timeout(Some(Duration::from_secs(60)))
+            .map_err(|e| FigCraftError::Io(e.to_string()))?;
+        stream
+            .write_all(format!("{request}\n").as_bytes())
+            .map_err(|e| FigCraftError::Io(e.to_string()))?;
+
+        let mut line = String::new();
+        BufReader::new(stream)
+            .read_line(&mut line)
+            .map_err(|e| FigCraftError::Io(e.to_string()))?;
+        if line.is_empty() {
+            return Err(FigCraftError::Response("empty reply".into()));
+        }
+
+        let reply: Value = serde_json::from_str(&line)
+            .map_err(|e| FigCraftError::Response(e.to_string()))?;
+        if reply.get("ok").and_then(Value::as_bool) != Some(true) {
+            return Err(FigCraftError::Rejected(
+                reply
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown control-channel error")
+                    .to_owned(),
+            ));
+        }
+
+        Ok(reply.get("result").cloned().unwrap_or(Value::Null))
     }
 }
