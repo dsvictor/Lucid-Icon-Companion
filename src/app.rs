@@ -337,7 +337,8 @@ impl eframe::App for CompanionApp {
             ui.horizontal(|ui| {
                 // Place the title on the same horizontal line as the traffic lights.
                 ui.add_space(68.0);
-                ui.add_space(5.0);
+                // Align the title's visual centre with the macOS traffic-light centres.
+                ui.add_space(14.0);
                 ui.label(egui::RichText::new("Lucide Icon")
                     .font(egui::FontId::proportional(15.0))
                     .strong()
@@ -346,7 +347,7 @@ impl eframe::App for CompanionApp {
             ui.add_space(2.0);
             ui.horizontal(|ui| {
                 // Match the reference: compact tabs begin on the same inset as the search row.
-                ui.add_space(22.0);
+                ui.add_space(20.0);
                 ui.spacing_mut().item_spacing.x = 14.0;
                 for (tab, label) in [
                     (MainTab::Icons, "Icon"),
@@ -408,7 +409,7 @@ impl eframe::App for CompanionApp {
                     ui.horizontal(|ui| {
                         let category_width = 136.0_f32;
                         let gap = 8.0_f32;
-                        let right_inset = 12.0_f32;
+                        let right_inset = 14.0_f32;
                         ui.add_space(14.0);
                         let available = (ui.available_width() - right_inset).max(1.0);
                         let search_width = (available - category_width - gap).max(112.0);
