@@ -71,7 +71,7 @@ The import command accepts X/Y coordinates and a `center` flag. When centred mod
 - Runtime insertion still needs a hands-on test against the user's installed FigCraft 0.15.0 and active document.
 - Dragging icons directly out of the companion into another app is not implemented; use Copy SVG or Export SVG.
 - The macOS package is unsigned. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
-- Windows and Linux packaging are future targets after macOS behaviour is validated.
+- Windows and Linux are included in CI compile checks; native installers and interactive runtime testing remain future work after macOS behaviour is validated.
 
 ## Licensing
 
