@@ -285,32 +285,72 @@ impl eframe::App for CompanionApp {
                         let _ = self.settings.save();
                     }
                 });
+
+                // Show the actual styled SVG so changes are visible before insertion.
+                if self.preview.is_none() {
+                    let svg = self.styled_svg(&icon);
+                    self.preview = Self::render_preview(&ctx, &svg, &format!("selected-{}", icon.name))
+                        .map(|texture| (icon.name.clone(), texture));
+                }
+                if let Some((preview_name, texture)) = &self.preview {
+                    if preview_name == &icon.name {
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(4.0);
+                            ui.add(egui::Image::new((texture.id(), egui::vec2(
+                                self.settings.icon_size.clamp(48.0, 240.0),
+                                self.settings.icon_size.clamp(48.0, 240.0),
+                            ))));
+                        });
+                    }
+                }
+
                 ui.collapsing("Customize", |ui| {
-                    ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0).text("Stroke"));
+                    let mut changed = false;
                     ui.horizontal(|ui| {
-                        ui.label("Colour");
-                        ui.add(egui::TextEdit::singleline(&mut self.settings.stroke_color).desired_width(82.0));
-                        ui.label("Fill");
-                        ui.add(egui::TextEdit::singleline(&mut self.settings.fill_color).desired_width(70.0));
+                        changed |= ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0)
+                            .text("Stroke")).changed();
+                        changed |= ui.add(egui::Slider::new(&mut self.settings.icon_size, 48.0..=240.0)
+                            .text("Preview")).changed();
                     });
+                    ui.horizontal(|ui| {
+                        ui.label("Stroke");
+                        changed |= ui.add(egui::TextEdit::singleline(&mut self.settings.stroke_color)
+                            .desired_width(88.0).hint_text("#RRGGBB")).changed();
+                        ui.label("Fill");
+                        changed |= ui.add(egui::TextEdit::singleline(&mut self.settings.fill_color)
+                            .desired_width(76.0).hint_text("none or #RRGGBB")).changed();
+                    });
+                    let stroke_valid = safe_hex_color(&self.settings.stroke_color).is_some();
+                    let fill_valid = self.settings.fill_color.trim().eq_ignore_ascii_case("none")
+                        || safe_hex_color(&self.settings.fill_color).is_some();
+                    if !stroke_valid || !fill_valid {
+                        ui.colored_label(egui::Color32::LIGHT_RED,
+                            "Use #RGB, #RRGGBB, #RRGGBBAA; fill also accepts none.");
+                    } else if changed {
+                        self.preview = None;
+                        self.save_settings();
+                    }
                     ui.horizontal(|ui| {
                         ui.checkbox(&mut self.settings.center_on_view, "Center in viewport");
                         if !self.settings.center_on_view {
-                            ui.horizontal(|ui| {
-                                ui.label("X"); ui.add(egui::DragValue::new(&mut self.settings.import_x).speed(1.0));
-                                ui.label("Y"); ui.add(egui::DragValue::new(&mut self.settings.import_y).speed(1.0));
-                            });
-                        }
-                        if ui.button("Export SVG…").clicked() {
-                            let svg = self.styled_svg(&icon);
-                            self.export_svg(&icon.name, &svg);
+                            ui.label("X");
+                            changed |= ui.add(egui::DragValue::new(&mut self.settings.import_x).speed(1.0)).changed();
+                            ui.label("Y");
+                            changed |= ui.add(egui::DragValue::new(&mut self.settings.import_y).speed(1.0)).changed();
                         }
                     });
+                    if changed {
+                        self.preview = None;
+                        if stroke_valid && fill_valid { self.save_settings(); }
+                    }
+                    if ui.button("Export styled SVG…").clicked() {
+                        let svg = self.styled_svg(&icon);
+                        self.export_svg(&icon.name, &svg);
+                    }
                 });
             } else {
-                ui.label(egui::RichText::new("Click an icon to insert it into FigCraft").small().weak());
+                ui.label(egui::RichText::new("Choose an icon to preview, customize and insert it.").small().weak());
             }
-
             ui.separator();
 
             let available_width = if ui.available_width().is_finite() {
