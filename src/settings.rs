@@ -60,3 +60,37 @@ impl Settings {
         self.recent.truncate(40);
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn favorites_toggle_on_and_off() {
+        let mut settings = Settings::default();
+        settings.toggle_favorite("alarm-clock");
+        assert!(settings.is_favorite("alarm-clock"));
+        settings.toggle_favorite("alarm-clock");
+        assert!(!settings.is_favorite("alarm-clock"));
+    }
+
+    #[test]
+    fn recent_icons_are_most_recent_first_and_deduplicated() {
+        let mut settings = Settings::default();
+        settings.remember("alarm-clock");
+        settings.remember("arrow-down");
+        settings.remember("alarm-clock");
+        assert_eq!(settings.recent, vec!["alarm-clock", "arrow-down"]);
+    }
+
+    #[test]
+    fn recent_history_is_bounded() {
+        let mut settings = Settings::default();
+        for index in 0..60 {
+            settings.remember(&format!("icon-{index}"));
+        }
+        assert_eq!(settings.recent.len(), 40);
+        assert_eq!(settings.recent.first().unwrap(), "icon-59");
+    }
+}
