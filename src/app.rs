@@ -320,7 +320,7 @@ impl eframe::App for CompanionApp {
             #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
                 // Place the title on the same horizontal line as the traffic lights.
-                ui.add_space(60.0);
+                ui.add_space(70.0);
                 ui.label(egui::RichText::new("Lucide icon")
                     .font(egui::FontId::proportional(16.0))
                     .strong()
@@ -394,15 +394,28 @@ impl eframe::App for CompanionApp {
                                      egui::pos2(search_center.x + 9.0, search_center.y + 9.0)],
                                     search_stroke,
                                 );
+                                // Keep a fixed trailing clear-button slot so typing never
+                                // changes the toolbar width or pushes the category picker offscreen.
+                                let clear_slot_width = 22.0_f32;
+                                let text_width = (ui.available_width() - clear_slot_width - 4.0).max(40.0);
                                 let response = ui.add_sized(
-                                    [ui.available_width().max(40.0), 27.0],
+                                    [text_width, 27.0],
                                     egui::TextEdit::singleline(&mut self.query)
                                         .hint_text("search")
                                         .frame(egui::Frame::NONE),
                                 );
-                                if !self.query.is_empty() && ui.small_button("×").clicked() {
-                                    self.query.clear();
-                                }
+                                let clear_slot = ui.allocate_ui_with_layout(
+                                    egui::vec2(clear_slot_width, 27.0),
+                                    egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                                    |ui| {
+                                        if self.query.is_empty() {
+                                            ui.add_space(clear_slot_width);
+                                        } else if ui.small_button("×").clicked() {
+                                            self.query.clear();
+                                        }
+                                    },
+                                );
+                                let _ = clear_slot;
                                 let line_y = response.rect.bottom() + 3.0;
                                 ui.painter().line_segment(
                                     [egui::pos2(response.rect.left(), line_y), egui::pos2(response.rect.right(), line_y)],
