@@ -39,7 +39,7 @@ impl FigCraftClient {
 
     pub fn insert_svg(&self, name: &str, svg: &str, x: Option<f64>, y: Option<f64>, center: bool) -> Result<String, FigCraftError> {
         let data = STANDARD.encode(svg.as_bytes());
-        let mut params = json!({"data": data, "name": format!("{name}.svg"), "center": center});
+        let mut params = json!({"data": data, "name": name, "center": center});
         if let Some(x) = x { params["x"] = json!(x); }
         if let Some(y) = y { params["y"] = json!(y); }
         let request = json!({
