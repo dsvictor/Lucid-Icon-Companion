@@ -46,6 +46,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install SVG rasterizer for app icon
+        run: brew install librsvg
       - name: Install Rust target
         uses: dtolnay/rust-toolchain@stable
         with:
