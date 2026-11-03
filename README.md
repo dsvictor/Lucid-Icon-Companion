@@ -19,6 +19,7 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 
 ### Preview and SVG styling
 - SVG preview rendered locally.
+- Supplied red-and-blue companion mark is packaged as the native macOS app icon.
 - Adjustable preview size and stroke width.
 - Custom stroke and fill colours (hex values); fill can remain `none`.
 - Export SVG to a chosen location.
@@ -27,7 +28,8 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 ### FigCraft integration
 - Launch FigCraft with its loopback control listener.
 - Test the control connection using the documented `window.list` method.
-- Import SVG as editable geometry with `engine.execute` → `file.import`.
+- Import SVG as editable geometry with `engine.execute` → `file.import`; the selected Lucide icon name is passed as the import name.
+- Clipboard Copy remains a generic SVG paste operation and FigCraft may label that object “Pasted SVG”; use Insert for the named import path.
 - Insert centred in the current viewport or at explicit canvas X/Y coordinates.
 - Catalogue download and FigCraft actions run in background threads so the UI stays responsive.
 
@@ -69,7 +71,7 @@ The import command accepts X/Y coordinates and a `center` flag. When centred mod
 
 - Lucide's static package publishes tags and tag groups, not a separate category taxonomy; the app therefore exposes upstream tag groups rather than inventing categories.
 - Runtime insertion still needs a hands-on test against the user's installed FigCraft 0.15.0 and active document.
-- Dragging icons directly out of the companion into another app is not implemented; use Copy SVG or Export SVG.
+- Dragging icons directly out of the companion into another app is not implemented yet; use the named Insert action, Copy SVG, or Export SVG.
 - The macOS package is unsigned. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
 - Windows and Linux are included in CI compile checks; native installers and interactive runtime testing remain future work after macOS behaviour is validated.
 
