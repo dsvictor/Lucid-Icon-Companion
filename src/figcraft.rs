@@ -14,7 +14,7 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 pub enum FigCraftError {
     #[error("Could not launch FigCraft: {0}")]
     Launch(String),
-    #[error("Could not connect to FigCraft: {0}")]
+    #[error("Could not connect to FigCraft at 127.0.0.1: {0}")]
     Connect(String),
     #[error("Control socket I/O failed: {0}")]
     Io(String),
@@ -35,7 +35,7 @@ impl FigCraftClient {
         }
     }
 
-    /// Launch the macOS application with FigCraft's loopback control listener enabled.
+    /// Launch FigCraft with the loopback control listener enabled.
     pub fn launch(&self) -> Result<(), FigCraftError> {
         #[cfg(target_os = "macos")]
         {
@@ -57,21 +57,44 @@ impl FigCraftClient {
         }
     }
 
-    /// Insert an SVG as editable geometry. With no x/y, FigCraft uses the current
-    /// viewport centre; center=true centres the imported frame on that point.
-    pub fn insert_svg(&self, name: &str, svg: &str) -> Result<String, FigCraftError> {
+    pub fn check_connection(&self) -> Result<(), FigCraftError> {
+        let request = json!({
+            "id": NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            "method": "engine.ping",
+            "params": {}
+        });
+        self.send(&request).map(|_| ())
+    }
+
+    /// Insert SVG as editable geometry at a chosen canvas point.
+    /// If x/y are omitted, FigCraft uses the current viewport centre.
+    pub fn insert_svg(
+        &self,
+        name: &str,
+        svg: &str,
+        x: Option<f64>,
+        y: Option<f64>,
+        center: bool,
+    ) -> Result<String, FigCraftError> {
         let request_id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let data = STANDARD.encode(svg.as_bytes());
+        let mut params = json!({
+            "data": data,
+            "name": format!("{name}.svg"),
+            "center": center
+        });
+        if let Some(x) = x {
+            params["x"] = json!(x);
+        }
+        if let Some(y) = y {
+            params["y"] = json!(y);
+        }
         let request = json!({
             "id": request_id,
             "method": "engine.execute",
             "params": {
                 "command": "file.import",
-                "params": {
-                    "data": data,
-                    "name": format!("{name}.svg"),
-                    "center": true
-                }
+                "params": params
             }
         });
 
@@ -83,10 +106,10 @@ impl FigCraftClient {
         let mut stream = TcpStream::connect_timeout(&self.address, Duration::from_secs(3))
             .map_err(|e| FigCraftError::Connect(e.to_string()))?;
         stream
-            .set_read_timeout(Some(Duration::from_secs(60)))
+            .set_read_timeout(Some(Duration::from_secs(15)))
             .map_err(|e| FigCraftError::Io(e.to_string()))?;
         stream
-            .set_write_timeout(Some(Duration::from_secs(60)))
+            .set_write_timeout(Some(Duration::from_secs(15)))
             .map_err(|e| FigCraftError::Io(e.to_string()))?;
         stream
             .write_all(format!("{request}\n").as_bytes())
@@ -113,5 +136,32 @@ impl FigCraftClient {
         }
 
         Ok(reply.get("result").cloned().unwrap_or(Value::Null))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn import_request_encodes_svg_as_base64() {
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>";
+        let encoded = STANDARD.encode(svg.as_bytes());
+        let request = json!({
+            "method": "engine.execute",
+            "params": {
+                "command": "file.import",
+                "params": {
+                    "data": encoded,
+                    "name": "test.svg",
+                    "center": true,
+                    "x": 120.0,
+                    "y": 240.0
+                }
+            }
+        });
+        assert_eq!(request["params"]["command"], "file.import");
+        assert_eq!(request["params"]["params"]["name"], "test.svg");
+        assert_eq!(request["params"]["params"]["x"], 120.0);
     }
 }

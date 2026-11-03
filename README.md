@@ -6,24 +6,32 @@ A native desktop companion for browsing the complete Lucide icon library, previe
 **Initial target:** macOS Apple Silicon  
 **Implementation:** Rust + egui
 
-## Capabilities in this development build
+## Features
 
-- Resolve the latest published `lucide-static` package at runtime and download its SVG catalogue (not a hard-coded curated subset).
-- Cache SVG assets locally and search icon names.
-- Render SVG previews and customize stroke width, stroke colour and fill.
-- Export SVG files and copy SVG source to the clipboard.
-- Launch FigCraft with its loopback control channel enabled.
-- Insert SVG as editable geometry using FigCraft's documented `engine.execute` / `file.import` control command.
+- Downloads the current published `lucide-static` package at runtime.
+- Caches every upstream SVG and its upstream `tags.json` search metadata.
+- Searches icon names and multiple metadata tags.
+- All, Favorites and Recent library views.
+- SVG preview with adjustable size, stroke width, stroke colour and fill.
+- Export SVG, copy SVG source, and preview the raw SVG markup.
+- Saves favourites, recents, appearance settings and FigCraft connection preferences.
+- Launches FigCraft with the loopback control channel enabled.
+- Tests the control connection and imports SVG as editable geometry.
+- Supports viewport-centred insertion or explicit canvas X/Y placement.
+
+## Install the macOS build
+
+Download the latest **Lucide-Companion-macOS-arm64** artifact from the [GitHub Actions build](https://github.com/dsvictor/Lucid-Icon-Companion/actions). Extract the artifact ZIP, open the DMG, and drag Lucide Companion into Applications. This initial distribution is unsigned; macOS may require you to approve opening it.
 
 ## Build from source
 
-Install Rust using rustup, then:
+Install Rust with rustup, then:
 
 ```sh
 cargo run
 ```
 
-To package an Apple Silicon app and DMG on macOS:
+Package an Apple Silicon app and DMG on macOS:
 
 ```sh
 bash scripts/package-macos.sh
@@ -31,14 +39,15 @@ bash scripts/package-macos.sh
 
 ## FigCraft control channel
 
-The app connects to `127.0.0.1:7979` using newline-delimited JSON. It can launch FigCraft with `--control 7979`, then call `engine.execute` with `file.import`, passing the SVG as base64 data. FigCraft places and selects the imported editable frame.
+The app connects to `127.0.0.1:7979` using newline-delimited JSON. It can launch FigCraft with `--control 7979`, test the connection, and call `engine.execute` with `file.import`, passing SVG bytes as base64 data. The import supports viewport-centred or explicit X/Y placement.
 
-## Current development scope
+## Known limitations
 
-The first build focuses on the main browse, preview, customize, export and insert path. Search currently matches icon names. Upstream tags/categories, favourites, recents, drag-and-drop, richer placement controls, and polish remain follow-on work.
-
-The macOS workflow builds an Apple Silicon app bundle and uploads a DMG artifact. The initial package is unsigned; code signing and notarization require an Apple Developer ID certificate and credentials.
+- Search uses Lucide's published tags metadata; icon categories are not included in the static package's tag index.
+- The exact target-machine behaviour must still be tested with the user's installed FigCraft 0.15.0.
+- The initial macOS package is unsigned. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
+- Windows and Linux builds are not yet included in the release pipeline.
 
 ## Licensing
 
-The companion source is MIT-licensed. Lucide SVGs remain upstream assets under the Lucide project's ISC license: https://github.com/lucide-icons/lucide.
+The companion source is MIT-licensed. Lucide SVG assets remain under the Lucide project's ISC license: https://github.com/lucide-icons/lucide.

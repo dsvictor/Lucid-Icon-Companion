@@ -10,15 +10,26 @@ use std::{
     thread,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LibraryView {
+    All,
+    Favorites,
+    Recent,
+}
+
 pub struct CompanionApp {
     settings: Settings,
     query: String,
     icons: Vec<Icon>,
     selected: Option<String>,
+    view: LibraryView,
     status: String,
     loading: bool,
+    importing: bool,
     tx: Sender<Result<(Vec<Icon>, String), String>>,
     rx: Receiver<Result<(Vec<Icon>, String), String>>,
+    action_tx: Sender<Result<String, String>>,
+    action_rx: Receiver<Result<String, String>>,
     preview: Option<(String, egui::TextureHandle)>,
 }
 
@@ -27,23 +38,35 @@ impl CompanionApp {
         let settings = Settings::load();
         let icons = catalogue::load_cache(&settings.cache_dir);
         let status = if icons.is_empty() {
-            "Lucide catalogue not installed. Choose Update catalogue to download the complete upstream set.".to_owned()
+            "Catalogue not installed. Choose Update catalogue to download all Lucide icons.".to_owned()
         } else {
-            format!("Loaded {} cached Lucide icons.", icons.len())
+            format!("Ready · {} cached icons", icons.len())
         };
         let (tx, rx) = mpsc::channel();
+        let (action_tx, action_rx) = mpsc::channel();
 
         Self {
             settings,
             query: String::new(),
             icons,
             selected: None,
+            view: LibraryView::All,
             status,
             loading: false,
+            importing: false,
             tx,
             rx,
+            action_tx,
+            action_rx,
             preview: None,
         }
+    }
+
+    fn save_settings(&mut self) {
+        self.status = match self.settings.save() {
+            Ok(()) => "Preferences saved.".into(),
+            Err(error) => format!("Could not save preferences: {error}"),
+        };
     }
 
     fn update_catalogue(&mut self, ctx: &egui::Context) {
@@ -51,7 +74,7 @@ impl CompanionApp {
             return;
         }
         self.loading = true;
-        self.status = "Downloading the latest lucide-static package…".into();
+        self.status = "Downloading the latest Lucide package and metadata…".into();
         let sender = self.tx.clone();
         let cache = self.settings.cache_dir.clone();
         let repaint = ctx.clone();
@@ -69,16 +92,35 @@ impl CompanionApp {
     }
 
     fn styled_svg(&self, icon: &Icon) -> String {
-        icon.svg
-            .replace("currentColor", &self.settings.stroke_color)
-            .replace(
-                "stroke-width=\"2\"",
-                &format!("stroke-width=\"{}\"", self.settings.stroke_width),
-            )
-            .replace(
-                "fill=\"none\"",
-                &format!("fill=\"{}\"", self.settings.fill_color),
-            )
+        let stroke = self.settings.stroke_color.trim();
+        let fill = self.settings.fill_color.trim();
+        let svg = icon.svg.replace("currentColor", stroke);
+        let svg = svg.replace("stroke-width=\"2\"", &format!("stroke-width=\"{}\"", self.settings.stroke_width));
+        if fill.eq_ignore_ascii_case("none") {
+            svg
+        } else {
+            svg.replace("fill=\"none\"", &format!("fill=\"{fill}\""))
+        }
+    }
+
+    fn select_icon(&mut self, name: &str) {
+        self.selected = Some(name.to_owned());
+        self.settings.remember(name);
+        let _ = self.settings.save();
+        self.preview = None;
+    }
+
+    fn filtered_icons(&self) -> Vec<Icon> {
+        let searched = catalogue::search(&self.icons, &self.query);
+        searched
+            .into_iter()
+            .filter(|icon| match self.view {
+                LibraryView::All => true,
+                LibraryView::Favorites => self.settings.is_favorite(&icon.name),
+                LibraryView::Recent => self.settings.recent.iter().any(|name| name == &icon.name),
+            })
+            .cloned()
+            .collect()
     }
 
     fn export_svg(&mut self, name: &str, svg: &str) {
@@ -89,7 +131,6 @@ impl CompanionApp {
         else {
             return;
         };
-
         self.status = match fs::write(&path, svg) {
             Ok(()) => format!("Saved {}", path.display()),
             Err(error) => format!("Could not save SVG: {error}"),
@@ -98,43 +139,54 @@ impl CompanionApp {
 
     fn launch_figcraft(&mut self) {
         self.status = match FigCraftClient::new(self.settings.control_port).launch() {
-            Ok(()) => format!(
-                "Launching FigCraft with control enabled on port {}…",
-                self.settings.control_port
-            ),
+            Ok(()) => format!("Launching FigCraft with control enabled on port {}…", self.settings.control_port),
             Err(error) => error.to_string(),
         };
+    }
+
+    fn check_figcraft(&mut self) {
+        let port = self.settings.control_port;
+        let sender = self.action_tx.clone();
+        self.status = format!("Checking FigCraft control connection on port {port}…");
+        thread::spawn(move || {
+            let result = FigCraftClient::new(port).check_connection().map(|_| "FigCraft control connection is responding.".to_owned()).map_err(|e| e.to_string());
+            let _ = sender.send(result);
+        });
     }
 
     fn insert_into_figcraft(&mut self, icon: &Icon) {
+        if self.importing {
+            return;
+        }
+        self.importing = true;
+        let name = icon.name.clone();
         let svg = self.styled_svg(icon);
-        self.status = match FigCraftClient::new(self.settings.control_port)
-            .insert_svg(&icon.name, &svg)
-        {
-            Ok(result) => format!("Inserted {} into FigCraft. {result}", icon.name),
-            Err(error) => error.to_string(),
-        };
+        let port = self.settings.control_port;
+        let x = self.settings.import_x;
+        let y = self.settings.import_y;
+        let center = self.settings.center_on_view;
+        let sender = self.action_tx.clone();
+        let repaint = self.preview.as_ref().map(|_| ());
+        let _ = repaint;
+
+        thread::spawn(move || {
+            let result = FigCraftClient::new(port)
+                .insert_svg(&name, &svg, if center { None } else { Some(x) }, if center { None } else { Some(y) }, center)
+                .map(|reply| format!("Inserted {name} into FigCraft. {reply}"))
+                .map_err(|error| error.to_string());
+            let _ = sender.send(result);
+        });
+        self.status = format!("Importing {} into FigCraft…", icon.name);
     }
 
-    fn render_preview(
-        ctx: &egui::Context,
-        svg: &str,
-        key: &str,
-    ) -> Option<egui::TextureHandle> {
-        let tree =
-            resvg::usvg::Tree::from_str(svg, &resvg::usvg::Options::default()).ok()?;
+    fn render_preview(ctx: &egui::Context, svg: &str, key: &str) -> Option<egui::TextureHandle> {
+        let tree = resvg::usvg::Tree::from_str(svg, &resvg::usvg::Options::default()).ok()?;
         let source_size = tree.size().to_int_size();
         let scale = 4.0_f32;
         let width = source_size.width().max(1) * scale as u32;
         let height = source_size.height().max(1) * scale as u32;
         let mut pixmap = tiny_skia::Pixmap::new(width, height)?;
-
-        resvg::render(
-            &tree,
-            tiny_skia::Transform::from_scale(scale, scale),
-            &mut pixmap.as_mut(),
-        );
-
+        resvg::render(&tree, tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
         let image = egui::ColorImage::from_rgba_unmultiplied(
             [width as usize, height as usize],
             pixmap.data(),
@@ -152,13 +204,14 @@ impl eframe::App for CompanionApp {
                     self.icons = icons;
                     self.selected = None;
                     self.preview = None;
-                    self.status = format!(
-                        "Lucide {version}: {} SVG icons cached.",
-                        self.icons.len()
-                    );
+                    self.status = format!("Lucide {version} · {} icons indexed with tags", self.icons.len());
                 }
                 Err(error) => self.status = format!("Catalogue update failed: {error}"),
             }
+        }
+        if let Ok(result) = self.action_rx.try_recv() {
+            self.importing = false;
+            self.status = result.unwrap_or_else(|error| error);
         }
 
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
@@ -166,14 +219,14 @@ impl eframe::App for CompanionApp {
                 ui.heading("Lucide Companion");
                 ui.label("for FigCraft");
                 ui.separator();
-                if ui
-                    .add_enabled(!self.loading, egui::Button::new("Update catalogue"))
-                    .clicked()
-                {
+                if ui.add_enabled(!self.loading, egui::Button::new("Update catalogue")).clicked() {
                     self.update_catalogue(ctx);
                 }
                 if ui.button("Launch FigCraft").clicked() {
                     self.launch_figcraft();
+                }
+                if ui.button("Test connection").clicked() {
+                    self.check_figcraft();
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label("by Jayanta");
@@ -190,79 +243,93 @@ impl eframe::App for CompanionApp {
             });
         });
 
-        egui::SidePanel::left("icon_browser")
-            .resizable(true)
-            .default_width(290.0)
-            .show(ctx, |ui| {
-                ui.heading("Icon library");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.query)
-                        .hint_text("Search icon names…")
-                        .desired_width(f32::INFINITY),
-                );
-                ui.separator();
-
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    let matches = catalogue::search(&self.icons, &self.query);
-                    for icon in matches {
-                        let name = icon.name.clone();
-                        if ui
-                            .selectable_label(self.selected.as_ref() == Some(&name), &name)
-                            .clicked()
-                        {
-                            self.selected = Some(name);
-                            self.preview = None;
-                        }
-                    }
-                });
+        egui::SidePanel::left("icon_browser").resizable(true).default_width(310.0).show(ctx, |ui| {
+            ui.heading("Icon library");
+            ui.add(egui::TextEdit::singleline(&mut self.query).hint_text("Search names and tags…").desired_width(f32::INFINITY));
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.view, LibraryView::All, "All");
+                ui.selectable_value(&mut self.view, LibraryView::Favorites, "★ Favorites");
+                ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
             });
+            ui.separator();
+
+            let filtered = self.filtered_icons();
+            ui.label(format!("{} matching icons", filtered.len()));
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                for icon in filtered {
+                    let name = icon.name.clone();
+                    let is_selected = self.selected.as_ref() == Some(&name);
+                    ui.horizontal(|ui| {
+                        if ui.selectable_label(is_selected, &name).clicked() {
+                            self.select_icon(&name);
+                        }
+                        let favorite = self.settings.is_favorite(&name);
+                        if ui.small_button(if favorite { "★" } else { "☆" }).clicked() {
+                            self.settings.toggle_favorite(&name);
+                            let _ = self.settings.save();
+                        }
+                    });
+                }
+            });
+        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(icon) = self.selected_icon() {
-                ui.heading(&icon.name);
                 ui.horizontal(|ui| {
-                    ui.add(
-                        egui::Slider::new(&mut self.settings.icon_size, 24.0..=256.0)
-                            .text("Preview size"),
-                    );
-                    ui.add(
-                        egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0)
-                            .text("Stroke"),
-                    );
+                    ui.heading(&icon.name);
+                    if ui.button(if self.settings.is_favorite(&icon.name) { "★ Remove favorite" } else { "☆ Add favorite" }).clicked() {
+                        self.settings.toggle_favorite(&icon.name);
+                        let _ = self.settings.save();
+                    }
                 });
-                ui.horizontal(|ui| {
-                    ui.label("Stroke");
-                    ui.text_edit_singleline(&mut self.settings.stroke_color);
-                    ui.label("Fill");
-                    ui.text_edit_singleline(&mut self.settings.fill_color);
+                ui.label(if icon.tags.is_empty() { "No upstream tags available".to_owned() } else { icon.tags.join(" · ") });
+                ui.separator();
+
+                ui.collapsing("Appearance", |ui| {
+                    ui.add(egui::Slider::new(&mut self.settings.icon_size, 24.0..=320.0).text("Preview size"));
+                    ui.add(egui::Slider::new(&mut self.settings.stroke_width, 0.5..=4.0).text("Stroke width"));
+                    ui.horizontal(|ui| {
+                        ui.label("Stroke");
+                        ui.text_edit_singleline(&mut self.settings.stroke_color);
+                        ui.label("Fill");
+                        ui.text_edit_singleline(&mut self.settings.fill_color);
+                    });
+                    ui.label("Use hex colours such as #171717, or set fill to none.");
                 });
 
                 let svg = self.styled_svg(&icon);
-                let key = format!(
-                    "{}-{}-{}-{}-{}",
-                    icon.name,
-                    self.settings.icon_size,
-                    self.settings.stroke_width,
-                    self.settings.stroke_color,
-                    self.settings.fill_color
-                );
-
+                let key = format!("{}-{}-{}-{}-{}", icon.name, self.settings.icon_size, self.settings.stroke_width, self.settings.stroke_color, self.settings.fill_color);
                 if self.preview.as_ref().map(|(cached, _)| cached) != Some(&key) {
-                    self.preview =
-                        Self::render_preview(ctx, &svg, &key).map(|texture| (key.clone(), texture));
+                    self.preview = Self::render_preview(ctx, &svg, &key).map(|texture| (key.clone(), texture));
                 }
 
-                ui.add_space(12.0);
+                ui.add_space(10.0);
                 if let Some((_, texture)) = &self.preview {
-                    let size = egui::Vec2::splat(self.settings.icon_size);
-                    ui.add(egui::Image::new((texture.id(), size)));
+                    ui.centered_and_justified(|ui| {
+                        let size = egui::Vec2::splat(self.settings.icon_size);
+                        ui.add(egui::Image::new((texture.id(), size)));
+                    });
                 } else {
                     ui.label("SVG preview could not be rendered.");
                 }
 
                 ui.separator();
+                ui.heading("FigCraft insertion");
                 ui.horizontal(|ui| {
-                    if ui.button("Insert into FigCraft").clicked() {
+                    ui.label("Control port");
+                    ui.add(egui::DragValue::new(&mut self.settings.control_port).range(1..=65535));
+                    ui.checkbox(&mut self.settings.center_on_view, "Center in viewport");
+                });
+                if !self.settings.center_on_view {
+                    ui.horizontal(|ui| {
+                        ui.label("Canvas X");
+                        ui.add(egui::DragValue::new(&mut self.settings.import_x).speed(1.0));
+                        ui.label("Y");
+                        ui.add(egui::DragValue::new(&mut self.settings.import_y).speed(1.0));
+                    });
+                }
+                ui.horizontal(|ui| {
+                    if ui.add_enabled(!self.importing, egui::Button::new("Insert into FigCraft")).clicked() {
                         self.insert_into_figcraft(&icon);
                     }
                     if ui.button("Export SVG…").clicked() {
@@ -273,21 +340,13 @@ impl eframe::App for CompanionApp {
                         self.status = format!("Copied {} SVG to clipboard.", icon.name);
                     }
                     if ui.button("Save preferences").clicked() {
-                        self.status = match self.settings.save() {
-                            Ok(()) => "Preferences saved.".into(),
-                            Err(error) => format!("Could not save preferences: {error}"),
-                        };
+                        self.save_settings();
                     }
                 });
 
                 ui.collapsing("SVG source", |ui| {
                     let mut source = svg.clone();
-                    ui.add(
-                        egui::TextEdit::multiline(&mut source)
-                            .desired_rows(10)
-                            .code_editor()
-                            .desired_width(f32::INFINITY),
-                    );
+                    ui.add(egui::TextEdit::multiline(&mut source).desired_rows(10).code_editor().desired_width(f32::INFINITY));
                 });
             } else {
                 ui.centered_and_justified(|ui| {

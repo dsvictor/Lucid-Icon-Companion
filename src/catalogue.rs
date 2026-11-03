@@ -1,6 +1,7 @@
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::{
+    collections::BTreeMap,
     fs,
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -11,6 +12,7 @@ use tar::Archive;
 pub struct Icon {
     pub name: String,
     pub svg: String,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,8 +40,14 @@ pub enum CatalogueError {
     Cache(String),
 }
 
-/// Read the local cache of untouched upstream SVG assets.
+/// Loads the complete cached SVG catalogue and its upstream tag index.
 pub fn load_cache(root: &Path) -> Vec<Icon> {
+    let tags_path = root.join("tags.json");
+    let tags: BTreeMap<String, Vec<String>> = fs::read_to_string(tags_path)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default();
+
     let mut icons = Vec::new();
     let Ok(entries) = fs::read_dir(root) else {
         return icons;
@@ -59,6 +67,7 @@ pub fn load_cache(root: &Path) -> Vec<Icon> {
         icons.push(Icon {
             name: name.to_owned(),
             svg,
+            tags: tags.get(name).cloned().unwrap_or_default(),
         });
     }
 
@@ -66,13 +75,13 @@ pub fn load_cache(root: &Path) -> Vec<Icon> {
     icons
 }
 
-/// Resolve the latest published lucide-static package, then cache every SVG it ships.
-/// The package version is resolved dynamically: no hand-maintained icon subset or version pin.
+/// Downloads the current published lucide-static release, extracts every SVG and
+/// the upstream tags.json metadata index, then returns the refreshed local catalogue.
 pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueError> {
     fs::create_dir_all(root).map_err(|e| CatalogueError::Cache(e.to_string()))?;
 
     let latest: NpmLatest = ureq::get("https://registry.npmjs.org/lucide-static/latest")
-        .set("User-Agent", "Lucide-Icon-Companion/0.1.0")
+        .set("User-Agent", "Lucide-Icon-Companion/0.2.0")
         .call()
         .map_err(|e| CatalogueError::Metadata(e.to_string()))?
         .into_json()
@@ -80,7 +89,7 @@ pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueErro
 
     let mut archive_bytes = Vec::new();
     ureq::get(&latest.dist.tarball)
-        .set("User-Agent", "Lucide-Icon-Companion/0.1.0")
+        .set("User-Agent", "Lucide-Icon-Companion/0.2.0")
         .call()
         .map_err(|e| CatalogueError::Download(e.to_string()))?
         .into_reader()
@@ -93,6 +102,15 @@ pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueErro
         .entries()
         .map_err(|e| CatalogueError::Archive(e.to_string()))?;
     let mut count = 0usize;
+    let mut tags_written = false;
+
+    // Remove stale SVGs first so removed upstream icons do not survive an update.
+    for entry in fs::read_dir(root).map_err(|e| CatalogueError::Cache(e.to_string()))? {
+        let path = entry.map_err(|e| CatalogueError::Cache(e.to_string()))?.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("svg") {
+            fs::remove_file(path).map_err(|e| CatalogueError::Cache(e.to_string()))?;
+        }
+    }
 
     for item in entries {
         let mut entry = item.map_err(|e| CatalogueError::Archive(e.to_string()))?;
@@ -101,19 +119,30 @@ pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueErro
             .map_err(|e| CatalogueError::Archive(e.to_string()))?
             .to_string_lossy()
             .into_owned();
+
+        if archive_path == "package/tags.json" {
+            let mut contents = String::new();
+            entry.read_to_string(&mut contents)
+                .map_err(|e| CatalogueError::Archive(e.to_string()))?;
+            let parsed: BTreeMap<String, Vec<String>> = serde_json::from_str(&contents)
+                .map_err(|e| CatalogueError::Archive(format!("invalid tags.json: {e}")))?;
+            let normalized = serde_json::to_vec(&parsed)
+                .map_err(|e| CatalogueError::Archive(e.to_string()))?;
+            fs::write(root.join("tags.json"), normalized)
+                .map_err(|e| CatalogueError::Cache(e.to_string()))?;
+            tags_written = true;
+            continue;
+        }
+
         let Some(filename) = archive_path.strip_prefix("package/icons/") else {
             continue;
         };
-
-        // Only accept flat SVG files directly under package/icons. This both matches
-        // lucide-static's asset layout and prevents archive paths escaping the cache.
         if filename.contains('/') || !filename.ends_with(".svg") || filename.is_empty() {
             continue;
         }
 
         let mut svg = String::new();
-        entry
-            .read_to_string(&mut svg)
+        entry.read_to_string(&mut svg)
             .map_err(|e| CatalogueError::Archive(e.to_string()))?;
         if !svg.contains("<svg") {
             continue;
@@ -130,19 +159,31 @@ pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueErro
     if count == 0 {
         return Err(CatalogueError::Empty);
     }
+    if !tags_written {
+        // Older or repackaged releases can omit tags.json; retain a valid name-search catalogue.
+        let _ = fs::write(root.join("tags.json"), "{}");
+    }
 
     Ok((load_cache(root), latest.version))
 }
 
+/// Match every query token against an icon name or any upstream search tag.
 pub fn search<'a>(icons: &'a [Icon], query: &str) -> Vec<&'a Icon> {
-    let needle = query.trim().to_lowercase();
-    if needle.is_empty() {
+    let terms: Vec<String> = query
+        .split_whitespace()
+        .map(|part| part.to_lowercase())
+        .collect();
+    if terms.is_empty() {
         return icons.iter().collect();
     }
 
     icons
         .iter()
-        .filter(|icon| icon.name.to_lowercase().contains(&needle))
+        .filter(|icon| {
+            let name = icon.name.to_lowercase();
+            let tags = icon.tags.join(" ").to_lowercase();
+            terms.iter().all(|term| name.contains(term) || tags.contains(term))
+        })
         .collect()
 }
 
@@ -150,21 +191,38 @@ pub fn search<'a>(icons: &'a [Icon], query: &str) -> Vec<&'a Icon> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn search_is_case_insensitive_and_matches_names() {
-        let icons = vec![
+    fn sample() -> Vec<Icon> {
+        vec![
             Icon {
                 name: "arrow-down".into(),
                 svg: "<svg/>".into(),
+                tags: vec!["backwards".into(), "reverse".into()],
             },
             Icon {
                 name: "alarm-clock".into(),
                 svg: "<svg/>".into(),
+                tags: vec!["time".into(), "schedule".into()],
             },
-        ];
+        ]
+    }
 
-        let matches = search(&icons, "ARROW");
+    #[test]
+    fn search_is_case_insensitive_and_matches_names() {
+        let matches = search(&sample(), "ARROW");
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].name, "arrow-down");
+    }
+
+    #[test]
+    fn search_matches_upstream_tags() {
+        let matches = search(&sample(), "schedule");
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].name, "alarm-clock");
+    }
+
+    #[test]
+    fn search_requires_all_tokens() {
+        assert!(search(&sample(), "arrow reverse").len() == 1);
+        assert!(search(&sample(), "arrow schedule").is_empty());
     }
 }
