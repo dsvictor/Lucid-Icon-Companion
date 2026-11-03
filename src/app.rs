@@ -320,17 +320,18 @@ impl eframe::App for CompanionApp {
             #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
                 // Place the title on the same horizontal line as the traffic lights.
-                ui.add_space(70.0);
-                ui.label(egui::RichText::new("Lucide icon")
+                ui.add_space(74.0);
+                ui.label(egui::RichText::new("Lucide Icon")
                     .font(egui::FontId::proportional(16.0))
                     .strong()
                     .color(egui::Color32::from_gray(242)));
             });
             ui.add_space(2.0);
             ui.horizontal(|ui| {
-                // Keep navigation aligned with the left edge of the content area.
+                // Align the first tab with the search magnifier below.
+                ui.add_space(8.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
-                ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icons").size(14.0));
+                ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icon").size(14.0));
                 ui.selectable_value(&mut self.tab, MainTab::Settings, egui::RichText::new("Settings").size(14.0));
                 ui.selectable_value(&mut self.tab, MainTab::Info, egui::RichText::new("Info").size(14.0));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -400,7 +401,7 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
-                                        .hint_text("search")
+                                        .hint_text("Search")
                                         .frame(egui::Frame::NONE),
                                 );
                                 let _clear_slot = ui.allocate_ui_with_layout(
