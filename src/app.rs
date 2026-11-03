@@ -47,7 +47,23 @@ fn safe_hex_color(value: &str) -> Option<&str> {
 }
 
 impl CompanionApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Match the Lucide plugin's restrained charcoal surface across every panel and popup.
+        let mut visuals = egui::Visuals::dark();
+        visuals.dark_mode = true;
+        visuals.panel_fill = egui::Color32::from_rgb(43, 43, 43);
+        visuals.window_fill = egui::Color32::from_rgb(43, 43, 43);
+        visuals.extreme_bg_color = egui::Color32::from_rgb(32, 32, 32);
+        visuals.faint_bg_color = egui::Color32::from_rgb(48, 48, 48);
+        visuals.code_bg_color = egui::Color32::from_rgb(35, 35, 35);
+        visuals.window_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(68, 68, 68));
+        visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(43, 43, 43);
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(49, 49, 49);
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(62, 62, 62);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(72, 72, 72);
+        visuals.selection.bg_fill = egui::Color32::from_rgb(0, 105, 145);
+        visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(62, 62, 62));
+        cc.egui_ctx.set_visuals(visuals);
         let settings = Settings::load();
         let icons = catalogue::load_cache(&settings.cache_dir);
         let status = if icons.is_empty() {
@@ -289,32 +305,48 @@ impl eframe::App for CompanionApp {
             match self.tab {
                 MainTab::Icons => {
                     ui.add_space(5.0);
+                    // Search and category selector share one Lucide-style toolbar.
                     ui.horizontal(|ui| {
-                        ui.label("⌕");
-                        ui.add(egui::TextEdit::singleline(&mut self.query)
-                            .hint_text("Search icons, tags, or concepts…")
-                            .desired_width(f32::INFINITY));
-                        if !self.query.is_empty() && ui.small_button("×").clicked() {
-                            self.query.clear();
-                        }
+                        let search_width = (ui.available_width() - 138.0).max(110.0);
+                        egui::Frame::new()
+                            .fill(egui::Color32::from_rgb(35, 35, 35))
+                            .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(62, 62, 62)))
+                            .corner_radius(egui::CornerRadius::same(7))
+                            .inner_margin(egui::Margin::symmetric(9, 7))
+                            .show(ui, |ui| {
+                                ui.set_min_width(search_width);
+                                ui.horizontal(|ui| {
+                                    ui.label(egui::RichText::new("⌕").size(19.0).color(egui::Color32::from_gray(225)));
+                                    let edit = egui::TextEdit::singleline(&mut self.query)
+                                        .hint_text("Search icons")
+                                        .frame(false)
+                                        .desired_width((search_width - 62.0).max(50.0));
+                                    ui.add(edit);
+                                    if !self.query.is_empty() && ui.small_button("×").clicked() {
+                                        self.query.clear();
+                                    }
+                                });
+                            });
+                        let groups = self.available_groups();
+                        egui::ComboBox::from_id_salt("tag_group_filter")
+                            .selected_text(self.group.as_deref().unwrap_or("All categories"))
+                            .width(130.0)
+                            .show_ui(ui, |ui| {
+                                ui.set_min_width(190.0);
+                                egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+                                    ui.selectable_value(&mut self.group, None, "All categories");
+                                    ui.separator();
+                                    for group in &groups {
+                                        ui.selectable_value(&mut self.group, Some(group.clone()), group);
+                                    }
+                                });
+                            });
                     });
                     ui.add_space(7.0);
                     ui.horizontal(|ui| {
                         ui.selectable_value(&mut self.view, LibraryView::All, "All");
                         ui.selectable_value(&mut self.view, LibraryView::Favorites, "★");
                         ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            let groups = self.available_groups();
-                            egui::ComboBox::from_id_salt("tag_group_filter")
-                                .selected_text(self.group.as_deref().unwrap_or("All categories"))
-                                .width(126.0)
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(&mut self.group, None, "All categories");
-                                    for group in &groups {
-                                        ui.selectable_value(&mut self.group, Some(group.clone()), group);
-                                    }
-                                });
-                        });
                     });
                     ui.add_space(3.0);
                     let names = self.filtered_icon_names();
