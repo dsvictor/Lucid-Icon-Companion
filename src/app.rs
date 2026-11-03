@@ -8,6 +8,7 @@ enum LibraryView { All, Favorites, Recent }
 enum BackgroundResult {
     Connection(Result<String, String>),
     Import(Result<String, String>),
+    Context(Result<(String, Vec<u8>), String>),
 }
 
 pub struct CompanionApp {
@@ -26,6 +27,8 @@ pub struct CompanionApp {
     action_rx: Receiver<BackgroundResult>,
     preview: Option<(String, egui::TextureHandle)>,
     grid_previews: std::collections::HashMap<String, egui::TextureHandle>,
+    context_loading: bool,
+    host_context: Option<(String, egui::TextureHandle)>,
 }
 
 fn safe_hex_color(value: &str) -> Option<&str> {
@@ -55,6 +58,7 @@ impl CompanionApp {
             group: None, status, loading: false, importing: false,
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
             grid_previews: std::collections::HashMap::new(),
+            context_loading: false, host_context: None,
         }
     }
 
@@ -153,6 +157,25 @@ impl CompanionApp {
         });
     }
 
+    fn refresh_figcraft_context(&mut self, ctx: &egui::Context) {
+        if self.context_loading { return; }
+        self.context_loading = true;
+        self.status = "Reading active FigCraft document and rendering its selection…".into();
+        let port = self.settings.control_port;
+        let sender = self.action_tx.clone();
+        let repaint = ctx.clone();
+        thread::spawn(move || {
+            let result = FigCraftClient::new(port).inspect_and_render_selection()
+                .map(|(document, png)| {
+                    let details = serde_json::to_string_pretty(&document).unwrap_or_else(|_| document.to_string());
+                    (details, png)
+                })
+                .map_err(|error| error.to_string());
+            let _ = sender.send(BackgroundResult::Context(result));
+            repaint.request_repaint();
+        });
+    }
+
     fn insert_into_figcraft(&mut self, icon: &Icon, ctx: &egui::Context) {
         if self.importing { return; }
         self.importing = true;
@@ -192,7 +215,7 @@ impl CompanionApp {
 }
 
 impl eframe::App for CompanionApp {
-    fn logic(&mut self, _ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Ok(result) = self.catalogue_rx.try_recv() {
             self.loading = false;
             match result {
@@ -215,6 +238,25 @@ impl eframe::App for CompanionApp {
                     self.importing = false;
                     self.status = result.unwrap_or_else(|error| error);
                 }
+                BackgroundResult::Context(result) => {
+                    self.context_loading = false;
+                    match result {
+                        Ok((details, png)) => {
+                            match image::load_from_memory(&png) {
+                                Ok(image) => {
+                                    let rgba = image.to_rgba8();
+                                    let size = [rgba.width() as usize, rgba.height() as usize];
+                                    let color_image = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
+                                    let texture = ctx.load_texture("figcraft-selection", color_image, egui::TextureOptions::LINEAR);
+                                    self.host_context = Some((details, texture));
+                                    self.status = "FigCraft document and selection refreshed.".into();
+                                }
+                                Err(error) => self.status = format!("Could not decode FigCraft selection preview: {error}"),
+                            }
+                        }
+                        Err(error) => self.status = error,
+                    }
+                }
             }
         }
 
@@ -231,6 +273,7 @@ impl eframe::App for CompanionApp {
                     if ui.add_enabled(!self.loading, egui::Button::new("↻")).on_hover_text("Update icon library").clicked() {
                         self.update_catalogue(&ctx);
                     }
+                    if ui.button("Inspect").clicked() { self.refresh_figcraft_context(&ctx); }
                     if ui.button("Test").clicked() { self.check_figcraft(&ctx); }
                     if ui.button("Open FigCraft").clicked() { self.launch_figcraft(); }
                 });
@@ -249,6 +292,22 @@ impl eframe::App for CompanionApp {
         egui::CentralPanel::default().show(root_ui, |ui| {
             ui.add(egui::TextEdit::singleline(&mut self.query)
                 .hint_text("Search icons…").desired_width(f32::INFINITY));
+            ui.collapsing("FigCraft document & selection", |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Active document context").weak().small());
+                    if ui.add_enabled(!self.context_loading, egui::Button::new(if self.context_loading { "Inspecting…" } else { "Refresh" })).clicked() {
+                        self.refresh_figcraft_context(&ctx);
+                    }
+                });
+                if let Some((details, texture)) = &self.host_context {
+                    ui.add(egui::Image::new((texture.id(), egui::vec2(180.0, 120.0))).fit_to_original_size(egui::SizeHint::Scale(1.0)));
+                    egui::ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
+                        ui.add(egui::TextEdit::multiline(&mut details.as_str()).desired_width(f32::INFINITY).desired_rows(5).interactive(false));
+                    });
+                } else {
+                    ui.label(egui::RichText::new("Inspect the active FigCraft document to preview its current selection here.").small().weak());
+                }
+            });
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.view, LibraryView::All, "All");
                 ui.selectable_value(&mut self.view, LibraryView::Favorites, "★");
