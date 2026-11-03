@@ -21,21 +21,13 @@ A native desktop companion for browsing the complete Lucide icon library, previe
 
 ## Install the macOS build
 
-Download the latest **Lucide-Companion-macOS-arm64** artifact from the [GitHub Actions build](https://github.com/dsvictor/Lucid-Icon-Companion/actions). Extract the artifact ZIP, open the DMG, and drag Lucide Companion into Applications. This initial distribution is unsigned; macOS may require you to approve opening it.
+Download the latest **Lucide-Companion-macOS-arm64** artifact from [GitHub Actions](https://github.com/dsvictor/Lucid-Icon-Companion/actions). Extract the artifact ZIP, open the DMG, and drag Lucide Companion into Applications. This initial distribution is unsigned; macOS may require you to approve opening it.
 
 ## Build from source
 
-Install Rust with rustup, then:
+Install Rust using rustup, then run `cargo run`.
 
-```sh
-cargo run
-```
-
-Package an Apple Silicon app and DMG on macOS:
-
-```sh
-bash scripts/package-macos.sh
-```
+Package an Apple Silicon app and DMG on macOS with `bash scripts/package-macos.sh`.
 
 ## FigCraft control channel
 
@@ -44,7 +36,7 @@ The app connects to `127.0.0.1:7979` using newline-delimited JSON. It can launch
 ## Known limitations
 
 - Search uses Lucide's published tags metadata; icon categories are not included in the static package's tag index.
-- The exact target-machine behaviour must still be tested with the user's installed FigCraft 0.15.0.
+- The target-machine behaviour must still be tested with the user's installed FigCraft 0.15.0.
 - The initial macOS package is unsigned. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
 - Windows and Linux builds are not yet included in the release pipeline.
 

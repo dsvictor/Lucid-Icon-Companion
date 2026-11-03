@@ -1,0 +1,21 @@
+[package]
+name = "lucide-icon-companion"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jayanta"]
+description = "A native desktop companion for browsing Lucide icons and inserting SVGs into FigCraft."
+license = "MIT"
+
+[dependencies]
+base64 = "0.22"
+directories = "5"
+eframe = "0.31"
+flate2 = "1"
+rfd = "0.15"
+resvg = "0.44"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tar = "0.4"
+thiserror = "2"
+tiny-skia = "0.11"
+ureq = { version = "2.12", features = ["json"] }

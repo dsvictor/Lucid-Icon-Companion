@@ -13,9 +13,9 @@
 - Apple Silicon macOS app bundle and DMG workflow.
 
 ## Verified by GitHub Actions
-- Apple Silicon Rust test and release compilation passed.
+- Apple Silicon Rust tests and release compilation passed.
 - App bundle/DMG packaging passed.
-- Artifact upload passed (initial 0.1.0 build).
+- Artifact upload passed for the initial 0.1.0 build.
 
 ## Still requires user-machine verification
 - Launch and interact with the app on macOS 27.2.
