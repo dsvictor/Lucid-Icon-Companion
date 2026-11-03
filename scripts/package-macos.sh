@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
 TARGET="${1:-aarch64-apple-darwin}"
 APP="dist/Lucide Companion.app"
-BIN="target/$TARGET/release/lucid-icon-companion"
+BIN="target/$TARGET/release/lucide-icon-companion"
+DMG_ROOT="dist/dmg-root"
+DMG="dist/Lucide-Companion-macOS-arm64.dmg"
 
 cargo build --release --target "$TARGET"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -14,6 +19,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleName</key><string>Lucide Companion</string>
   <key>CFBundleDisplayName</key><string>Lucide Companion for FigCraft</string>
   <key>CFBundleIdentifier</key><string>dev.jayanta.lucide-icon-companion</string>
@@ -26,4 +32,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-hdiutil create -volname "Lucide Companion" -srcfolder "$APP" -ov -format UDZO "dist/Lucide-Companion-macOS-arm64.dmg"
+rm -rf "$DMG_ROOT"
+mkdir -p "$DMG_ROOT"
+cp -R "$APP" "$DMG_ROOT/"
+ln -s /Applications "$DMG_ROOT/Applications"
+hdiutil create -volname "Lucide Companion" -srcfolder "$DMG_ROOT" -ov -format UDZO "$DMG"
+rm -rf "$DMG_ROOT"
