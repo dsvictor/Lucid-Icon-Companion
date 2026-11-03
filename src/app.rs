@@ -310,13 +310,11 @@ impl eframe::App for CompanionApp {
         // One compact navigation row: keep the window chrome, remove the redundant in-app title bar.
         egui::Panel::top("navigation").show(root_ui, |ui| {
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.tab, MainTab::Icons, "Icons");
-                ui.selectable_value(&mut self.tab, MainTab::Settings, "Settings");
-                ui.selectable_value(&mut self.tab, MainTab::Info, "Info");
+                ui.spacing_mut().item_spacing.x = 18.0;
+                ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icons").size(14.0));
+                ui.selectable_value(&mut self.tab, MainTab::Settings, egui::RichText::new("Settings").size(14.0));
+                ui.selectable_value(&mut self.tab, MainTab::Info, egui::RichText::new("Info").size(14.0));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.small_button("↻").on_hover_text("Update Lucide icon catalogue").clicked() {
-                        self.update_catalogue(&ctx);
-                    }
                     if ui.small_button("↗").on_hover_text("Open FigCraft with control enabled").clicked() {
                         self.launch_figcraft();
                     }
@@ -324,36 +322,54 @@ impl eframe::App for CompanionApp {
             });
         });
 
+        egui::TopBottomPanel::bottom("catalogue_footer")
+            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill).inner_margin(egui::Margin::symmetric(12, 5)))
+            .show_inside(root_ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("Lucide").small().underline().color(egui::Color32::from_gray(155)));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let refresh = ui.add_enabled(!self.loading, egui::Button::new(
+                            egui::RichText::new("⟳").size(18.0).color(egui::Color32::from_gray(190))
+                        ).frame(false));
+                        if refresh.on_hover_text("Update Lucide catalogue").clicked() {
+                            self.update_catalogue(&ctx);
+                        }
+                    });
+                });
+            });
+
         egui::CentralPanel::default().show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
-                    ui.add_space(5.0);
-                    // Lucide-style single toolbar: borderless search on the panel surface,
-                    // with a compact category selector aligned to the right.
+                    ui.add_space(8.0);
+                    // Minimal search toolbar based on the supplied Lucide mockup.
                     ui.horizontal(|ui| {
                         let category_width = 126.0_f32;
-                        let gap = 8.0_f32;
-                        let outer_width = (ui.available_width() - category_width - gap).max(120.0);
-                        egui::Frame::new()
-                            .fill(ui.visuals().panel_fill)
-                            .stroke(egui::Stroke::NONE)
-                            .inner_margin(egui::Margin::symmetric(2, 6))
-                            .show(ui, |ui| {
-                                ui.set_width(outer_width - 4.0);
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("⌕").size(20.0).color(egui::Color32::from_gray(235)));
-                                    let text_width = (outer_width - 74.0).max(48.0);
-                                    ui.add_sized(
-                                        [text_width, 28.0],
-                                        egui::TextEdit::singleline(&mut self.query)
-                                            .hint_text("Search icons")
-                                            .frame(egui::Frame::NONE),
-                                    );
-                                    if !self.query.is_empty() && ui.small_button("×").clicked() {
-                                        self.query.clear();
-                                    }
-                                });
-                            });
+                        let gap = 10.0_f32;
+                        let available = ui.available_width();
+                        let search_width = (available - category_width - gap).max(112.0);
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(search_width, 34.0),
+                            egui::Layout::left_to_right(egui::Align::Center),
+                            |ui| {
+                                ui.spacing_mut().item_spacing.x = 7.0;
+                                ui.label(egui::RichText::new("⌕").size(22.0).color(egui::Color32::WHITE));
+                                let response = ui.add_sized(
+                                    [ui.available_width().max(40.0), 27.0],
+                                    egui::TextEdit::singleline(&mut self.query)
+                                        .hint_text("search")
+                                        .frame(egui::Frame::NONE),
+                                );
+                                if !self.query.is_empty() && ui.small_button("×").clicked() {
+                                    self.query.clear();
+                                }
+                                let line_y = response.rect.bottom() + 3.0;
+                                ui.painter().line_segment(
+                                    [egui::pos2(response.rect.left(), line_y), egui::pos2(response.rect.right(), line_y)],
+                                    egui::Stroke::new(1.0, egui::Color32::from_gray(78)),
+                                );
+                            },
+                        );
                         ui.add_space(gap);
                         let groups = self.available_groups();
                         egui::ComboBox::from_id_salt("tag_group_filter")
@@ -361,35 +377,28 @@ impl eframe::App for CompanionApp {
                             .width(category_width)
                             .show_ui(ui, |ui| {
                                 ui.set_min_width(210.0);
-                                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                                    ui.set_min_width(194.0);
-                                    ui.selectable_value(&mut self.group, None, "All categories");
-                                    ui.separator();
-                                    if groups.is_empty() {
-                                        ui.label(egui::RichText::new("Category metadata unavailable").weak());
-                                    } else {
-                                        for group in &groups {
-                                            ui.selectable_value(&mut self.group, Some(group.clone()), group);
-                                        }
-                                    }
-                                });
+                                ui.selectable_value(&mut self.group, None, "All categories");
+                                ui.separator();
+                                for group in &groups {
+                                    ui.selectable_value(&mut self.group, Some(group.clone()), group);
+                                }
                             });
                     });
-                    ui.add_space(7.0);
+                    ui.add_space(10.0);
                     ui.horizontal(|ui| {
-                        ui.selectable_value(&mut self.view, LibraryView::All, "All");
-                        ui.selectable_value(&mut self.view, LibraryView::Favorites, "★");
-                        ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
+                        ui.spacing_mut().item_spacing.x = 14.0;
+                        ui.selectable_value(&mut self.view, LibraryView::All, egui::RichText::new("All").size(13.0));
+                        ui.selectable_value(&mut self.view, LibraryView::Favorites, egui::RichText::new("☆").size(15.0));
+                        ui.selectable_value(&mut self.view, LibraryView::Recent, egui::RichText::new("Recent").size(13.0));
                     });
-                    ui.add_space(3.0);
+                    ui.add_space(2.0);
                     let names = self.filtered_icon_names();
-                    ui.label(egui::RichText::new(format!("{} icons", names.len())).small().weak());
                     // Recalculate the number and width of cells from the live viewport width.
                     // This keeps the icon grid centred and evenly spaced as the window is resized.
                     let grid_width = ui.available_width().max(1.0);
-                    let columns = ((grid_width / 54.0).floor() as usize).clamp(1, 10);
+                    let columns = ((grid_width / 80.0).floor() as usize).clamp(4, 6);
                     let cell_width = grid_width / columns as f32;
-                    let row_height = 52.0;
+                    let row_height = 80.0;
                     let rows = names.len().div_ceil(columns);
                     egui::ScrollArea::vertical().auto_shrink([false, false])
                         .show_rows(ui, row_height, rows, |ui, range| {
@@ -407,7 +416,7 @@ impl eframe::App for CompanionApp {
                                             egui::Layout::top_down(egui::Align::Center),
                                             |ui| {
                                                 let (rect, response) = ui.allocate_exact_size(
-                                                    egui::vec2(45.0, 46.0), egui::Sense::click());
+                                                    egui::vec2(68.0, 68.0), egui::Sense::click());
                                                 if selected {
                                                     ui.painter().rect_filled(rect, 6.0, ui.visuals().selection.bg_fill);
                                                 } else if response.hovered() {
@@ -422,7 +431,7 @@ impl eframe::App for CompanionApp {
                                                 }
                                                 if let Some(texture) = self.grid_previews.get(name) {
                                                     let image_rect = egui::Rect::from_center_size(
-                                                        rect.center(), egui::vec2(27.0, 27.0));
+                                                        rect.center(), egui::vec2(34.0, 34.0));
                                                     ui.painter().image(texture.id(), image_rect,
                                                         egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
                                                         egui::Color32::WHITE);
