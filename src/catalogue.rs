@@ -118,10 +118,12 @@ fn token_score(term: &str, words: &[&str], full: &str) -> Option<i32> {
     if full == term { return Some(100); }
     if words.iter().any(|word| *word == term) { return Some(90); }
     if full.starts_with(term) || words.iter().any(|word| word.starts_with(term)) { return Some(75); }
-    if full.contains(term) || words.iter().any(|word| word.contains(term)) { return Some(60); }
-    if term.len() >= 4 && words.iter().any(|word| edit_distance_at_most_one(term, word)) { return Some(35); }
-    // Subsequence matching helps natural queries such as "alrm" -> "alarm".
-    if words.iter().any(|word| {
+    // Short queries must be precise: substring/subsequence matching makes "pen"
+    // match unrelated tags such as "open", "happen", and "expense".
+    if term.chars().count() >= 4 && words.iter().any(|word| word.contains(term)) { return Some(60); }
+    if term.chars().count() >= 4 && words.iter().any(|word| edit_distance_at_most_one(term, word)) { return Some(35); }
+    // Allow forgiving subsequence matching only for longer, unambiguous queries.
+    if term.chars().count() >= 5 && words.iter().any(|word| {
         let mut chars = word.chars();
         term.chars().all(|wanted| chars.by_ref().any(|got| got == wanted))
     }) { return Some(20); }
@@ -158,6 +160,27 @@ mod tests {
             Icon { name: "alarm-clock".into(), svg: "<svg/>".into(), tags: vec!["time".into(), "schedule".into()] },
         ]
     }
+    #[test] fn short_search_terms_do_not_match_accidental_substrings() {
+        let icons = vec![
+            Icon { name: "pen".into(), svg: "<svg/>".into(), tags: vec![] },
+            Icon { name: "pencil".into(), svg: "<svg/>".into(), tags: vec!["writing".into()] },
+            Icon { name: "pen-tool".into(), svg: "<svg/>".into(), tags: vec![] },
+            Icon { name: "alarm-clock".into(), svg: "<svg/>".into(), tags: vec!["open".into(), "happen".into()] },
+            Icon { name: "wallet".into(), svg: "<svg/>".into(), tags: vec!["expense".into()] },
+        ];
+        let matches = search(&icons, "PEN");
+        let names: Vec<&str> = matches.iter().map(|icon| icon.name.as_str()).collect();
+        assert_eq!(names, vec!["pen", "pen-tool", "pencil"]);
+    }
+
+    #[test] fn longer_searches_keep_fuzzy_matching() {
+        let icons = vec![
+            Icon { name: "alarm-clock".into(), svg: "<svg/>".into(), tags: vec![] },
+            Icon { name: "calendar".into(), svg: "<svg/>".into(), tags: vec![] },
+        ];
+        assert_eq!(search(&icons, "alrm")[0].name, "alarm-clock");
+    }
+
     #[test] fn search_is_case_insensitive_and_matches_names() {
         let icons = sample();
         let matches = search(&icons, "ARROW");
