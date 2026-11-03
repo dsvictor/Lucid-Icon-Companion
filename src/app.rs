@@ -192,7 +192,7 @@ impl CompanionApp {
 }
 
 impl eframe::App for CompanionApp {
-    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, _ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Ok(result) = self.catalogue_rx.try_recv() {
             self.loading = false;
             match result {
@@ -222,7 +222,7 @@ impl eframe::App for CompanionApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
-        egui::TopBottomPanel::top("header").show(&ctx, |ui| {
+        egui::Panel::top("header").show(root_ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Lucide Companion");
                 ui.label("for FigCraft");
@@ -238,7 +238,7 @@ impl eframe::App for CompanionApp {
             });
         });
 
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+        egui::Panel::bottom("status").show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label(&self.status);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -247,7 +247,7 @@ impl eframe::App for CompanionApp {
             });
         });
 
-        egui::SidePanel::left("icon_browser").resizable(true).default_width(320.0).show(ctx, |ui| {
+        egui::Panel::left("icon_browser").resizable(true).default_size(320.0).show(ctx, |ui| {
             ui.heading("Icon library");
             let search_response = ui.add(egui::TextEdit::singleline(&mut self.query)
                 .hint_text("Search names and tags…").desired_width(f32::INFINITY));
@@ -333,7 +333,7 @@ impl eframe::App for CompanionApp {
                                         }
                                         if ui.add_sized(
                                             [cell_width - 4.0, 22.0],
-                                            egui::SelectableLabel::new(selected, name),
+                                            egui::Button::selectable(selected, name),
                                         ).clicked() {
                                             self.select_icon(name);
                                         }
