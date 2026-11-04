@@ -518,58 +518,58 @@ impl eframe::App for CompanionApp {
                     egui::ScrollArea::vertical().auto_shrink([false, false])
                         .show_rows(ui, row_height, rows, |ui, range| {
                             for row in range {
-                                ui.horizontal(|ui| {
-                                    ui.spacing_mut().item_spacing.x = 0.0;
-                                    // Use this row's actual available layout width. The grid
-                                    // intentionally has a smaller left inset and a larger right
-                                    // inset to match the user's reference screenshot.
-                                    let row_width = ui.available_rect_before_wrap().width().max(1.0);
-                                    let left_gap = 4.0_f32;
-                                    let right_gap = 20.0_f32;
-                                    let cell_width = (row_width - left_gap - right_gap).max(1.0)
-                                        / columns as f32;
-                                    ui.add_space(left_gap);
-                                    for col in 0..columns {
-                                        let index = row * columns + col;
-                                        let Some(name) = names.get(index) else { break; };
-                                        let selected = self.selected.as_ref() == Some(name);
-                                        let svg = self.icons.iter().find(|icon| icon.name == *name)
-                                            .map(|icon| icon.svg.replace("currentColor", "#eeeeee"));
-                                        ui.allocate_ui_with_layout(
-                                            egui::vec2(cell_width, row_height),
-                                            egui::Layout::top_down(egui::Align::Center),
-                                            |ui| {
-                                                let (rect, response) = ui.allocate_exact_size(
-                                                    egui::vec2(42.0, 42.0), egui::Sense::click());
-                                                if selected {
-                                                    ui.painter().rect_filled(rect, 6.0, ui.visuals().selection.bg_fill);
-                                                } else if response.hovered() {
-                                                    ui.painter().rect_filled(rect, 6.0, ui.visuals().widgets.hovered.bg_fill);
-                                                }
-                                                if !self.grid_previews.contains_key(name) {
-                                                    if let Some(svg) = svg.as_deref() {
-                                                        if let Some(texture) = Self::render_preview(&ctx, svg, &format!("grid-{name}")) {
-                                                            self.grid_previews.insert(name.clone(), texture);
-                                                        }
-                                                    }
-                                                }
-                                                if let Some(texture) = self.grid_previews.get(name) {
-                                                    let image_rect = egui::Rect::from_center_size(
-                                                        rect.center(), egui::vec2(24.0, 24.0));
-                                                    ui.painter().image(texture.id(), image_rect,
-                                                        egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
-                                                        egui::Color32::WHITE);
-                                                }
-                                                if response.on_hover_text(name).clicked() {
-                                                    self.select_icon(name);
-                                                    if let Some(icon) = self.selected_icon() {
-                                                        self.insert_into_figcraft(&icon, &ctx);
-                                                    }
-                                                }
-                                            });
+                                // Allocate one fixed-width row, then place each cell by
+                                // absolute coordinates inside that row. This avoids egui's
+                                // expanding horizontal layout consuming the trailing inset.
+                                let row_width = ui.available_width().max(1.0);
+                                let (row_rect, _) = ui.allocate_exact_size(
+                                    egui::vec2(row_width, row_height), egui::Sense::hover());
+                                let left_gap = 4.0_f32;
+                                let right_gap = 20.0_f32;
+                                let usable_width = (row_rect.width() - left_gap - right_gap).max(1.0);
+                                let cell_width = usable_width / columns as f32;
+
+                                for col in 0..columns {
+                                    let index = row * columns + col;
+                                    let Some(name) = names.get(index) else { break; };
+                                    let cell_rect = egui::Rect::from_min_size(
+                                        egui::pos2(row_rect.left() + left_gap + cell_width * col as f32,
+                                                   row_rect.top()),
+                                        egui::vec2(cell_width, row_height));
+                                    let response = ui.interact(
+                                        cell_rect, ui.make_persistent_id(("icon-grid-cell", index)),
+                                        egui::Sense::click());
+                                    let selected = self.selected.as_ref() == Some(name);
+                                    let icon_rect = egui::Rect::from_center_size(
+                                        cell_rect.center(), egui::vec2(42.0, 42.0));
+                                    if selected {
+                                        ui.painter().rect_filled(icon_rect, 6.0, ui.visuals().selection.bg_fill);
+                                    } else if response.hovered() {
+                                        ui.painter().rect_filled(icon_rect, 6.0, ui.visuals().widgets.hovered.bg_fill);
                                     }
-                                    ui.add_space(right_gap);
-                                });
+                                    if !self.grid_previews.contains_key(name) {
+                                        if let Some(svg) = self.icons.iter().find(|icon| icon.name == *name)
+                                            .map(|icon| icon.svg.replace("currentColor", "#eeeeee")) {
+                                            if let Some(texture) = Self::render_preview(&ctx, &svg, &format!("grid-{name}")) {
+                                                self.grid_previews.insert(name.clone(), texture);
+                                            }
+                                        }
+                                    }
+                                    if let Some(texture) = self.grid_previews.get(name) {
+                                        let image_rect = egui::Rect::from_center_size(
+                                            icon_rect.center(), egui::vec2(24.0, 24.0));
+                                        ui.painter().image(texture.id(), image_rect,
+                                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                                            egui::Color32::WHITE);
+                                    }
+                                    if response.on_hover_text(name).clicked() {
+                                        self.select_icon(name);
+                                        if let Some(icon) = self.selected_icon() {
+                                            self.insert_into_figcraft(&icon, &ctx);
+                                        }
+                                    }
+                                }
+
                             }
                         });
                     if let Some(icon) = self.selected_icon() {
