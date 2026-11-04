@@ -568,7 +568,7 @@ impl eframe::App for CompanionApp {
                                                 }
                                             });
                                     }
-                                    ui.add_space(side_gap);
+                                    ui.add_space(right_gap);
                                 });
                             }
                         });
