@@ -407,7 +407,7 @@ impl eframe::App for CompanionApp {
                     ui.add_space(8.0);
                     // Minimal search toolbar based on the supplied Lucide mockup.
                     ui.horizontal(|ui| {
-                        let category_width = 136.0_f32;
+                        let category_width = 84.0_f32;
                         let gap = 8.0_f32;
                         let right_inset = 14.0_f32;
                         // Start the magnifier on the same left guide as the tabs and icon grid.
@@ -508,9 +508,10 @@ impl eframe::App for CompanionApp {
                     // Recalculate the number and width of cells from the live viewport width.
                     // This keeps the icon grid centred and evenly spaced as the window is resized.
                     let grid_width = ui.available_width().max(1.0);
-                    let columns = ((grid_width / 50.0).floor() as usize).clamp(5, 6);
+                    // Preserve the official six-column layout at the target compact width.
+                    let columns = if grid_width >= 240.0 { 6 } else { 5 };
                     let cell_width = grid_width / columns as f32;
-                    let row_height = 58.0;
+                    let row_height = 48.0;
                     let rows = names.len().div_ceil(columns);
                     egui::ScrollArea::vertical().auto_shrink([false, false])
                         .show_rows(ui, row_height, rows, |ui, range| {
@@ -528,7 +529,7 @@ impl eframe::App for CompanionApp {
                                             egui::Layout::top_down(egui::Align::Center),
                                             |ui| {
                                                 let (rect, response) = ui.allocate_exact_size(
-                                                    egui::vec2(54.0, 54.0), egui::Sense::click());
+                                                    egui::vec2(42.0, 42.0), egui::Sense::click());
                                                 if selected {
                                                     ui.painter().rect_filled(rect, 6.0, ui.visuals().selection.bg_fill);
                                                 } else if response.hovered() {
@@ -543,7 +544,7 @@ impl eframe::App for CompanionApp {
                                                 }
                                                 if let Some(texture) = self.grid_previews.get(name) {
                                                     let image_rect = egui::Rect::from_center_size(
-                                                        rect.center(), egui::vec2(32.0, 32.0));
+                                                        rect.center(), egui::vec2(24.0, 24.0));
                                                     ui.painter().image(texture.id(), image_rect,
                                                         egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
                                                         egui::Color32::WHITE);
