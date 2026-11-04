@@ -521,7 +521,13 @@ impl eframe::App for CompanionApp {
                                 // Allocate one fixed-width row, then place each cell by
                                 // absolute coordinates inside that row. This avoids egui's
                                 // expanding horizontal layout consuming the trailing inset.
-                                let row_width = ui.available_width().max(1.0);
+                                // The ScrollArea's content can be wider than its visible
+                                // viewport. End the row at the clip boundary so the trailing
+                                // inset is measured from the actual window edge, not hidden
+                                // scroll content.
+                                let row_available = ui.available_rect_before_wrap();
+                                let visible_right = ui.clip_rect().right();
+                                let row_width = (visible_right - row_available.left()).max(1.0);
                                 let (row_rect, _) = ui.allocate_exact_size(
                                     egui::vec2(row_width, row_height), egui::Sense::hover());
                                 let left_gap = 4.0_f32;
