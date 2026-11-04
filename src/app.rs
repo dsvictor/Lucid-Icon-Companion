@@ -321,6 +321,7 @@ impl eframe::App for CompanionApp {
             ("open", include_str!("../assets/open_in_figcraft.svg")),
             ("dropdown", include_str!("../assets/dropdown.svg")),
             ("cancel", include_str!("../assets/cancel.svg")),
+            ("copy", include_str!("../assets/copy.svg")),
         ] {
             if !self.chrome_icons.contains_key(key) {
                 let svg = source.replace("#FF0000", "#bdbdbd");
@@ -365,17 +366,6 @@ impl eframe::App for CompanionApp {
                         self.tab = tab;
                     }
                 }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(14.0);
-                    let (rect, response) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::click());
-                    if let Some(texture) = self.chrome_icons.get("open") {
-                        ui.painter().image(texture.id(), egui::Rect::from_center_size(rect.center(), egui::vec2(14.0, 14.0)),
-                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
-                    }
-                    if response.on_hover_text("Open FigCraft with control enabled").clicked() {
-                        self.launch_figcraft();
-                    }
-                });
             });
         });
 
@@ -387,14 +377,31 @@ impl eframe::App for CompanionApp {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
                         .size(11.5).underline().color(egui::Color32::from_gray(175)));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let (rect, response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
+                        // Keep refresh at the far right; place the selected-icon SVG copy
+                        // action immediately to its left, matching the supplied reference.
+                        let (refresh_rect, refresh_response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
                             if self.loading { egui::Sense::hover() } else { egui::Sense::click() });
                         if let Some(texture) = self.chrome_icons.get("refresh") {
-                            ui.painter().image(texture.id(), egui::Rect::from_center_size(rect.center(), egui::vec2(15.0, 15.0)),
+                            ui.painter().image(texture.id(), egui::Rect::from_center_size(refresh_rect.center(), egui::vec2(15.0, 15.0)),
                                 egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
                         }
-                        if response.on_hover_text("Update Lucide catalogue").clicked() && !self.loading {
+                        if refresh_response.on_hover_text("Update Lucide catalogue").clicked() && !self.loading {
                             self.update_catalogue(&ctx);
+                        }
+
+                        let has_selection = self.selected_icon().is_some();
+                        let (copy_rect, copy_response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
+                            if has_selection { egui::Sense::click() } else { egui::Sense::hover() });
+                        if let Some(texture) = self.chrome_icons.get("copy") {
+                            ui.painter().image(texture.id(), egui::Rect::from_center_size(copy_rect.center(), egui::vec2(14.0, 14.0)),
+                                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                                if has_selection { egui::Color32::WHITE } else { egui::Color32::from_gray(105) });
+                        }
+                        if copy_response.on_hover_text(if has_selection { "Copy selected icon SVG" } else { "Select an icon to copy its SVG" }).clicked() {
+                            if let Some(icon) = self.selected_icon() {
+                                ctx.copy_text(self.styled_svg(&icon));
+                                self.status = format!("Copied {} SVG.", icon.name);
+                            }
                         }
                     });
                 });
