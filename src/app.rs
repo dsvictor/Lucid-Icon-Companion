@@ -472,10 +472,12 @@ impl eframe::App for CompanionApp {
                         );
                         ui.add_space(gap);
                         let groups = self.available_groups();
+                        // Own the label so the ComboBox callback can mutably update
+                        // self.group without retaining an immutable borrow across the closure.
                         let selected_filter = match self.view {
-                            LibraryView::Favorites => "Favorites",
-                            LibraryView::Recent => "Recent",
-                            LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
+                            LibraryView::Favorites => "Favorites".to_owned(),
+                            LibraryView::Recent => "Recent".to_owned(),
+                            LibraryView::All => self.group.clone().unwrap_or_else(|| "All categories".to_owned()),
                         };
                         ui.scope(|ui| {
                             // Match the selector's surface to the window instead of the
