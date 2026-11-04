@@ -334,8 +334,10 @@ impl eframe::App for CompanionApp {
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
             #[cfg(target_os = "macos")]
+            ui.add_space(6.0);
+            #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
-                // Keep the title in the compact top navigation row and align it with the traffic lights.
+                // Move the title, tabs and launch control together to the reference's vertical guide.
                 ui.add_space(68.0);
                 ui.add_space(8.0);
                 ui.label(egui::RichText::new("Lucide Icon")
@@ -409,7 +411,8 @@ impl eframe::App for CompanionApp {
                     ui.horizontal(|ui| {
                         let category_width = 84.0_f32;
                         let gap = 8.0_f32;
-                        let right_inset = 14.0_f32;
+                        // Align the category control's right edge with the visible right edge of the last grid icon.
+                        let right_inset = 9.8_f32;
                         // Start the magnifier on the same left guide as the tabs and icon grid.
                         let available = (ui.available_width() - right_inset).max(1.0);
                         let search_width = (available - category_width - gap).max(112.0);
@@ -425,8 +428,8 @@ impl eframe::App for CompanionApp {
                                     search_icon_rect.center().x - 2.0,
                                     search_icon_rect.center().y - 2.0,
                                 );
-                                let search_stroke = egui::Stroke::new(1.8, egui::Color32::WHITE);
-                                ui.painter().circle_stroke(search_center, 6.0, search_stroke);
+                                let search_stroke = egui::Stroke::new(2.0, egui::Color32::WHITE);
+                                ui.painter().circle_stroke(search_center, 7.0, search_stroke);
                                 ui.painter().line_segment(
                                     [egui::pos2(search_center.x + 4.5, search_center.y + 4.5),
                                      egui::pos2(search_center.x + 9.0, search_center.y + 9.0)],
@@ -439,7 +442,7 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
-                                        .font(egui::FontId::proportional(14.0))
+                                        .font(egui::FontId::proportional(15.0))
                                         .vertical_align(egui::Align::Center)
                                         .hint_text("Search")
                                         .frame(egui::Frame::NONE),
