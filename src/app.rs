@@ -334,7 +334,7 @@ impl eframe::App for CompanionApp {
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
             #[cfg(target_os = "macos")]
-            ui.add_space(6.0);
+            ui.add_space(4.0);
             #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
                 // Move the title, tabs and launch control together to the reference's vertical guide.
@@ -402,7 +402,7 @@ impl eframe::App for CompanionApp {
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
-                .inner_margin(egui::Margin { left: 20, right: 18, top: 0, bottom: 0 }))
+                .inner_margin(egui::Margin { left: 18, right: 18, top: 0, bottom: 0 }))
             .show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
@@ -428,11 +428,11 @@ impl eframe::App for CompanionApp {
                                     search_icon_rect.center().x - 2.0,
                                     search_icon_rect.center().y - 2.0,
                                 );
-                                let search_stroke = egui::Stroke::new(2.0, egui::Color32::WHITE);
-                                ui.painter().circle_stroke(search_center, 7.0, search_stroke);
+                                let search_stroke = egui::Stroke::new(1.7, egui::Color32::WHITE);
+                                ui.painter().circle_stroke(search_center, 5.8, search_stroke);
                                 ui.painter().line_segment(
                                     [egui::pos2(search_center.x + 4.5, search_center.y + 4.5),
-                                     egui::pos2(search_center.x + 9.0, search_center.y + 9.0)],
+                                     egui::pos2(search_center.x + 8.0, search_center.y + 8.0)],
                                     search_stroke,
                                 );
                                 // Keep a fixed trailing clear-button slot so typing never
@@ -442,7 +442,7 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
-                                        .font(egui::FontId::proportional(15.0))
+                                        .font(egui::FontId::proportional(14.0))
                                         .vertical_align(egui::Align::Center)
                                         .hint_text("Search")
                                         .frame(egui::Frame::NONE),
