@@ -520,15 +520,15 @@ impl eframe::App for CompanionApp {
                             for row in range {
                                 ui.horizontal(|ui| {
                                     ui.spacing_mut().item_spacing.x = 0.0;
-                                    // Use the visible scroll viewport, not the row's expanding
-                                    // content width. This prevents the last column from being laid
-                                    // out underneath the clipped right edge / scrollbar.
-                                    let viewport = ui.clip_rect();
-                                    let viewport_width = viewport.width().max(1.0);
-                                    let side_gap = 12.0_f32;
-                                    let cell_width = (viewport_width - 2.0 * side_gap).max(1.0)
+                                    // Use this row's actual available layout width. The grid
+                                    // intentionally has a smaller left inset and a larger right
+                                    // inset to match the user's reference screenshot.
+                                    let row_width = ui.available_rect_before_wrap().width().max(1.0);
+                                    let left_gap = 4.0_f32;
+                                    let right_gap = 20.0_f32;
+                                    let cell_width = (row_width - left_gap - right_gap).max(1.0)
                                         / columns as f32;
-                                    ui.add_space(side_gap);
+                                    ui.add_space(left_gap);
                                     for col in 0..columns {
                                         let index = row * columns + col;
                                         let Some(name) = names.get(index) else { break; };
