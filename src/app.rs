@@ -412,7 +412,7 @@ impl eframe::App for CompanionApp {
                         let category_width = 84.0_f32;
                         let gap = 8.0_f32;
                         // Align the category control's right edge with the visible right edge of the last grid icon.
-                        let right_inset = 9.8_f32;
+                        let right_inset = 17.0_f32;
                         // Start the magnifier on the same left guide as the tabs and icon grid.
                         let available = (ui.available_width() - right_inset).max(1.0);
                         let search_width = (available - category_width - gap).max(112.0);
@@ -429,10 +429,10 @@ impl eframe::App for CompanionApp {
                                     search_icon_rect.center().y - 2.0,
                                 );
                                 let search_stroke = egui::Stroke::new(1.7, egui::Color32::WHITE);
-                                ui.painter().circle_stroke(search_center, 5.8, search_stroke);
+                                ui.painter().circle_stroke(search_center, 4.8, search_stroke);
                                 ui.painter().line_segment(
-                                    [egui::pos2(search_center.x + 4.5, search_center.y + 4.5),
-                                     egui::pos2(search_center.x + 8.0, search_center.y + 8.0)],
+                                    [egui::pos2(search_center.x + 3.8, search_center.y + 3.8),
+                                     egui::pos2(search_center.x + 7.0, search_center.y + 7.0)],
                                     search_stroke,
                                 );
                                 // Keep a fixed trailing clear-button slot so typing never
@@ -442,7 +442,7 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
-                                        .font(egui::FontId::proportional(14.0))
+                                        .font(egui::FontId::proportional(18.0))
                                         .vertical_align(egui::Align::Center)
                                         .hint_text("Search")
                                         .frame(egui::Frame::NONE),
@@ -513,7 +513,9 @@ impl eframe::App for CompanionApp {
                     let grid_width = ui.available_width().max(1.0);
                     // Preserve the official six-column layout at the target compact width.
                     let columns = if grid_width >= 240.0 { 6 } else { 5 };
-                    let cell_width = grid_width / columns as f32;
+                    // Give the icon grid equal breathing room on both sides of the window.
+                    let grid_side_gap = 9.0_f32;
+                    let cell_width = (grid_width - 2.0 * grid_side_gap).max(1.0) / columns as f32;
                     let row_height = 48.0;
                     let rows = names.len().div_ceil(columns);
                     egui::ScrollArea::vertical().auto_shrink([false, false])
@@ -521,6 +523,7 @@ impl eframe::App for CompanionApp {
                             for row in range {
                                 ui.horizontal(|ui| {
                                     ui.spacing_mut().item_spacing.x = 0.0;
+                                    ui.add_space(grid_side_gap);
                                     for col in 0..columns {
                                         let index = row * columns + col;
                                         let Some(name) = names.get(index) else { break; };
@@ -560,6 +563,7 @@ impl eframe::App for CompanionApp {
                                                 }
                                             });
                                     }
+                                    ui.add_space(grid_side_gap);
                                 });
                             }
                         });
