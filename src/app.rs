@@ -520,11 +520,15 @@ impl eframe::App for CompanionApp {
                             for row in range {
                                 ui.horizontal(|ui| {
                                     ui.spacing_mut().item_spacing.x = 0.0;
-                                    // Capture the full row viewport width ONCE, before allocating
-                                    // any cells. Re-reading available_width inside the loop shrinks
-                                    // the cells progressively and clips the rightmost icons.
-                                    let row_width = ui.available_width().max(1.0);
-                                    let cell_width = row_width / columns as f32;
+                                    // Use the visible scroll viewport, not the row's expanding
+                                    // content width. This prevents the last column from being laid
+                                    // out underneath the clipped right edge / scrollbar.
+                                    let viewport = ui.clip_rect();
+                                    let viewport_width = viewport.width().max(1.0);
+                                    let side_gap = 12.0_f32;
+                                    let cell_width = (viewport_width - 2.0 * side_gap).max(1.0)
+                                        / columns as f32;
+                                    ui.add_space(side_gap);
                                     for col in 0..columns {
                                         let index = row * columns + col;
                                         let Some(name) = names.get(index) else { break; };
@@ -564,6 +568,7 @@ impl eframe::App for CompanionApp {
                                                 }
                                             });
                                     }
+                                    ui.add_space(side_gap);
                                 });
                             }
                         });
