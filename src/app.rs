@@ -389,6 +389,16 @@ impl eframe::App for CompanionApp {
                             self.update_catalogue(&ctx);
                         }
 
+                        // Keep the FigCraft launcher in the footer as requested.
+                        let (open_rect, open_response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::click());
+                        if let Some(texture) = self.chrome_icons.get("open") {
+                            ui.painter().image(texture.id(), egui::Rect::from_center_size(open_rect.center(), egui::vec2(14.0, 14.0)),
+                                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+                        }
+                        if open_response.on_hover_text("Open FigCraft with control enabled").clicked() {
+                            self.launch_figcraft();
+                        }
+
                         let has_selection = self.selected_icon().is_some();
                         let (copy_rect, copy_response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
                             if has_selection { egui::Sense::click() } else { egui::Sense::hover() });
