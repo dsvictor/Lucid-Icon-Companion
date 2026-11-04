@@ -513,9 +513,6 @@ impl eframe::App for CompanionApp {
                     let grid_width = ui.available_width().max(1.0);
                     // Preserve the official six-column layout at the target compact width.
                     let columns = if grid_width >= 240.0 { 6 } else { 5 };
-                    // Give the icon grid equal breathing room on both sides of the window.
-                    let grid_side_gap = 9.0_f32;
-                    let cell_width = (grid_width - 2.0 * grid_side_gap).max(1.0) / columns as f32;
                     let row_height = 48.0;
                     let rows = names.len().div_ceil(columns);
                     egui::ScrollArea::vertical().auto_shrink([false, false])
@@ -523,7 +520,10 @@ impl eframe::App for CompanionApp {
                             for row in range {
                                 ui.horizontal(|ui| {
                                     ui.spacing_mut().item_spacing.x = 0.0;
-                                    ui.add_space(grid_side_gap);
+                                    // Measure the actual scrollable row width (which excludes its
+                                    // scrollbar), then divide it evenly so the first and last
+                                    // icon glyphs have identical visible edge gaps.
+                                    let cell_width = ui.available_width().max(1.0) / columns as f32;
                                     for col in 0..columns {
                                         let index = row * columns + col;
                                         let Some(name) = names.get(index) else { break; };
@@ -563,7 +563,6 @@ impl eframe::App for CompanionApp {
                                                 }
                                             });
                                     }
-                                    ui.add_space(grid_side_gap);
                                 });
                             }
                         });
