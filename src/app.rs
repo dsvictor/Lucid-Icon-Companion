@@ -409,7 +409,7 @@ impl eframe::App for CompanionApp {
                     ui.add_space(8.0);
                     // Minimal search toolbar based on the supplied Lucide mockup.
                     ui.horizontal(|ui| {
-                        let category_width = 84.0_f32;
+                        let category_width = 100.0_f32;
                         let gap = 8.0_f32;
                         // Align the category control's right edge with the visible right edge of the last grid icon.
                         let right_inset = 17.0_f32;
@@ -477,7 +477,15 @@ impl eframe::App for CompanionApp {
                             LibraryView::Recent => "Recent",
                             LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
                         };
-                        egui::ComboBox::from_id_salt("tag_group_filter")
+                        ui.scope(|ui| {
+                            // Match the selector's surface to the window instead of the
+                            // brighter default inactive-widget fill.
+                            let panel_fill = ui.visuals().panel_fill;
+                            ui.visuals_mut().widgets.inactive.bg_fill = panel_fill;
+                            ui.visuals_mut().widgets.hovered.bg_fill = panel_fill;
+                            ui.visuals_mut().widgets.active.bg_fill = panel_fill;
+                            ui.visuals_mut().widgets.open.bg_fill = panel_fill;
+                            egui::ComboBox::from_id_salt("tag_group_filter")
                             .selected_text(egui::RichText::new(selected_filter).size(12.5).strong())
                             .width(category_width)
                             .height(560.0)
@@ -504,6 +512,7 @@ impl eframe::App for CompanionApp {
                                     ui.selectable_value(&mut self.group, Some(group.clone()), group);
                                 }
                             });
+                        });
                         ui.add_space(right_inset);
                     });
                     ui.add_space(2.0);
