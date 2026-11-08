@@ -9,6 +9,8 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
+build = "build.rs"
+
 [dependencies]
 figcraft-plugin-sdk = { git = "https://github.com/storytold/figcraft", rev = "f45b261687880e56d1bad11ec82b45131e57ef8b", package = "figcraft-plugin-sdk" }
 
