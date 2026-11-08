@@ -20,7 +20,7 @@ FigCraft API 2 panels are **floating windows**, initially placed beside the prop
 
 ## Starter icon set
 
-The first implementation bundles a small set of commonly used icons in the WASM module. The full Lucide catalogue is not bundled yet: FigCraft plugins run in a sandbox with no network or filesystem access. A later step can generate and bundle the complete Lucide SVG catalogue at build time, with attribution and upstream version recorded.
+The first implementation bundles a complete upstream Lucide SVG catalogue (2,000+ icons) in the WASM module. The full Lucide catalogue is compiled into the WASM module at build time from pinned source revision `53fab88ff9d1b48f4704b5b5b560d6b4d560bf4c`; no runtime network or filesystem access is needed. The import ZIP includes the upstream license.
 
 ## Build
 
@@ -45,8 +45,8 @@ Select the manifest. Run **Plugins → Lucide Library** to open the panel.
 
 ## Permissions
 
-The manifest requests write access only for `file.import`. It does not request network, filesystem, clock or other document-command permissions.
+The manifest requests write access only for `node.create`. It does not request network, filesystem, clock or other document-command permissions.
 
 ## Compatibility
 
-The SDK dependency is pinned to FigCraft source commit `3635c23070994b3fd6abef8c30d6d15afe186ea3`. The plugin requires API 2 for panels and settings.
+The SDK dependency is pinned to FigCraft source commit `f45b261687880e56d1bad11ec82b45131e57ef8b`. The plugin requires API 2 for panels and settings.
