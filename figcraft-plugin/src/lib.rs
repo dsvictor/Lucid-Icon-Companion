@@ -28,24 +28,6 @@ const ICONS: &[(&str, &str)] = &[
     ("x", "M18 6 6 18M6 6l12 12"),
 ];
 
-fn base64(bytes: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::new();
-    for chunk in bytes.chunks(3) {
-        let a = chunk[0] as u32;
-        let b = chunk.get(1).copied().unwrap_or(0) as u32;
-        let c = chunk.get(2).copied().unwrap_or(0) as u32;
-        let n = (a << 16) | (b << 8) | c;
-        for i in 0..4 {
-            let index = ((n >> (18 - 6 * i)) & 63) as usize;
-            out.push(TABLE[index] as char);
-        }
-        if chunk.len() < 3 { out.pop(); out.push('='); }
-        if chunk.len() < 2 { out.pop(); out.push('='); }
-    }
-    out
-}
-
 fn safe_color(value: &str) -> &str {
     let v = value.trim();
     if v.len() == 7 && v.starts_with('#') && v[1..].bytes().all(|b| b.is_ascii_hexdigit()) { v } else { "#111111" }
@@ -91,8 +73,6 @@ fn insert_icon(name: &str, stroke: &str, width: f64) -> Result<Value> {
         "path": path,
         "x": 0,
         "y": 0,
-        "width": 24,
-        "height": 24,
         "name": format!("{name}"),
         "props": {
             "fill": "none",
@@ -134,15 +114,6 @@ entry!(run);
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn base64_encodes_correctly() {
-        assert_eq!(base64(b""), "");
-        assert_eq!(base64(b"f"), "Zg==");
-        assert_eq!(base64(b"fo"), "Zm8=");
-        assert_eq!(base64(b"foo"), "Zm9v");
-        assert_eq!(base64(b"foobar"), "Zm9vYmFy");
-    }
 
     #[test]
     fn search_is_case_insensitive_and_name_based() {
