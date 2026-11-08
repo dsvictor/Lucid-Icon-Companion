@@ -1,0 +1,46 @@
+name: Build FigCraft Lucide plugin
+
+on:
+  push:
+    branches:
+      - "feature/figcraft-native-lucide-plugin"
+    paths:
+      - "figcraft-plugin/**"
+      - ".github/workflows/build-figcraft-plugin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-wasm:
+    name: Build and test FigCraft WASM plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust and WASM target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            figcraft-plugin -> target
+      - name: Run host-side tests
+        run: cargo test --manifest-path figcraft-plugin/Cargo.toml
+      - name: Build WebAssembly plugin
+        run: cargo build --manifest-path figcraft-plugin/Cargo.toml --release --target wasm32-unknown-unknown
+      - name: Assemble importable plugin folder
+        run: |
+          mkdir -p dist/Lucide-Library-FigCraft
+          cp figcraft-plugin/figcraft-plugin.json dist/Lucide-Library-FigCraft/
+          cp target/wasm32-unknown-unknown/release/lucide_library_plugin.wasm dist/Lucide-Library-FigCraft/
+          cd dist
+          zip -r Lucide-Library-FigCraft.zip Lucide-Library-FigCraft
+      - name: Upload importable plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lucide-Library-FigCraft
+          path: dist/Lucide-Library-FigCraft.zip
+          if-no-files-found: error
