@@ -83,10 +83,28 @@ fn insert_icon(name: &str, stroke: &str, width: f64) -> Result<Value> {
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"{}\" stroke-width=\"{}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"{}\"/></svg>",
         safe_color(stroke), width.clamp(0.5, 4.0), path
     );
-    call("file.import", &json!({
-        "name": format!("{name}.svg"),
-        "data": base64(svg.as_bytes()),
-        "center": true
+    // FigCraft plugins cannot call file.* commands. Create an editable vector directly
+    // through the permitted node.create command instead of trying to import an SVG file.
+    // Keep the original Lucide path data as a vector network so the result remains editable.
+    let _svg = svg; // retained as a serialization reference for parity with Copy/Export work.
+    call("node.create", &json!({
+        "type": "vector",
+        "path": path,
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 24,
+        "name": format!("{name}"),
+        "props": {
+            "fill": [],
+            "stroke": [{
+                "type": "SOLID",
+                "color": safe_color(stroke)
+            }],
+            "strokeWidth": width.clamp(0.5, 4.0),
+            "strokeCap": "ROUND",
+            "strokeJoin": "ROUND"
+        }
     }))?;
     notify(&format!("Inserted {name}"));
     Ok(json!({"inserted": name}))
