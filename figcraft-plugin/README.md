@@ -11,7 +11,7 @@ This is the native FigCraft-plugin experiment, kept separate from the Rust/egui 
 - Opens a FigCraft-managed Lucide Library panel.
 - Searches the bundled starter icon set by name.
 - Lets the user choose an icon, stroke colour and stroke width.
-- Inserts SVG through FigCraft's `file.import` command, producing editable vector geometry.
+- Creates editable vector geometry through the permitted `node.create` command. The plugin does not call restricted `file.*` commands.
 - Uses FigCraft's own panel fields, settings and callbacks; no external network or filesystem access.
 
 ## Important panel behaviour
