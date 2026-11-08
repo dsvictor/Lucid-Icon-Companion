@@ -1,0 +1,20 @@
+[package]
+name = "lucide-library-plugin"
+version = "0.1.0"
+edition = "2024"
+authors = ["Jayanta"]
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+figcraft-plugin-sdk = { git = "https://github.com/storytold/figcraft", rev = "3635c23070994b3fd6abef8c30d6d15afe186ea3", package = "figcraft-plugin-sdk" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
