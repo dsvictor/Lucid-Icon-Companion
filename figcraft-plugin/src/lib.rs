@@ -2,7 +2,7 @@
 //! The panel is intentionally implemented with FigCraft's own controls. FigCraft currently
 //! presents API 2 panels as draggable floating windows (not permanently dockable sidebars).
 
-use figcraft_plugin_sdk::{Event, Input, Result, Value, call, entry, json, notify, set_setting, setting, show_ui};
+use figcraft_plugin_sdk::{Input, Result, Value, call, entry, json, notify, set_setting, setting, show_ui};
 
 const ICONS: &[(&str, &str)] = &[
     ("activity", "M3 12h4l3-8 4 16 3-8h4"),
@@ -86,7 +86,6 @@ fn insert_icon(name: &str, stroke: &str, width: f64) -> Result<Value> {
     // FigCraft plugins cannot call file.* commands. Create an editable vector directly
     // through the permitted node.create command instead of trying to import an SVG file.
     // Keep the original Lucide path data as a vector network so the result remains editable.
-    let _svg = svg; // retained as a serialization reference for parity with Copy/Export work.
     call("node.create", &json!({
         "type": "vector",
         "path": path,
@@ -96,14 +95,11 @@ fn insert_icon(name: &str, stroke: &str, width: f64) -> Result<Value> {
         "height": 24,
         "name": format!("{name}"),
         "props": {
-            "fill": [],
-            "stroke": [{
-                "type": "SOLID",
-                "color": safe_color(stroke)
-            }],
-            "strokeWidth": width.clamp(0.5, 4.0),
-            "strokeCap": "ROUND",
-            "strokeJoin": "ROUND"
+            "fill": "none",
+            "stroke": safe_color(stroke),
+            "strokeWeight": width.clamp(0.5, 4.0),
+            "strokeCap": "round",
+            "strokeJoin": "round"
         }
     }))?;
     notify(&format!("Inserted {name}"));
