@@ -10,7 +10,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-figcraft-plugin-sdk = { git = "https://github.com/storytold/figcraft", rev = "3635c23070994b3fd6abef8c30d6d15afe186ea3", package = "figcraft-plugin-sdk" }
+figcraft-plugin-sdk = { git = "https://github.com/storytold/figcraft", rev = "f45b261687880e56d1bad11ec82b45131e57ef8b", package = "figcraft-plugin-sdk" }
 
 [profile.release]
 opt-level = "z"
