@@ -1,0 +1,16 @@
+{
+  "id": "dev.jayanta.lucide-library",
+  "name": "Lucide Library",
+  "version": "0.1.0",
+  "author": "Jayanta",
+  "description": "Browse, style and insert Lucide SVG icons into the active FigCraft document.",
+  "main": "lucide_library_plugin.wasm",
+  "api": 2,
+  "permissions": {
+    "access": "write",
+    "commands": ["file.import"]
+  },
+  "commands": [
+    { "id": "open", "label": "Lucide Library" }
+  ]
+}
