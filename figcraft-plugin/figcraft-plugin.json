@@ -8,7 +8,7 @@
   "api": 2,
   "permissions": {
     "access": "write",
-    "commands": ["file.import"]
+    "commands": ["node.create"]
   },
   "commands": [
     { "id": "open", "label": "Lucide Library" }
