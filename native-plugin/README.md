@@ -1,40 +1,63 @@
 # Lucide Companion — Native FigCraft Plugin
 
 **Author:** Jayanta  
-**Status:** Prototype / first native-plugin implementation  
-**Target:** FigCraft desktop, plugin API 6
+**Status:** Native plugin prototype; compile and in-app verification are still required  
+**Target:** FigCraft plugin API 6
 
-This is a native WebAssembly plugin, separate from the existing Rust/egui macOS companion. The desktop companion remains untouched on the main branch.
+Lucide Companion is a native WebAssembly plugin for FigCraft. It is separate from the existing Rust/egui macOS companion; the desktop app and its existing code are not changed by this plugin.
 
-## Current prototype features
+## Features in this prototype
 
-- Bundles the official `lucide-static` icon set into the WebAssembly module at build time.
-- Searches icon names locally; the sandbox makes no network requests.
-- Shows up to 48 matching names in the native floating plugin panel.
-- Lets you choose icon size, stroke width and stroke colour.
-- Inserts the selected icon using `vector.create`, producing a normal editable vector layer rather than a locked widget.
-- Exports the selected icon as SVG through FigCraft's own Save dialog.
-- Uses FigCraft's native panel controls and persistent plugin installation.
+- Bundles the official `lucide-static` SVG icon set into the WebAssembly module.
+- Searches icon names locally; no network access is used by the plugin.
+- Shows up to 48 matching icon names in FigCraft's native floating panel and reports the total match count.
+- Provides icon size, stroke width and stroke colour controls.
+- Inserts the selected icon as an editable FigCraft vector layer using `vector.create`.
+- Preserves the vector's aspect ratio and centres the created layer in the current view.
+- Exports the selected icon as an SVG file through FigCraft's `save_file` capability.
 
-## API compatibility
+The panel uses FigCraft's native controls. It is a floating, draggable panel, not a dockable sidebar or a custom thumbnail grid.
 
-The manifest targets API 6, matching FigCraft v0.18.1. The implementation uses the native floating-panel and file-save capabilities, while inserting icons with `vector.create` so they become normal editable vector layers. API 6's SVG widget drawing is intentionally not used for the inserted artwork: widget contents are locked as a widget layer, whereas these icons should remain directly editable.
+## SDK and compatibility
+
+The plugin targets API 6. The official FigCraft SDK lives in a nested Cargo workspace at `plugins/sdk`; Cargo cannot select that nested workspace package directly as a Git dependency. To keep this project buildable without a separate FigCraft checkout, the SDK source is vendored under `vendor/figcraft-plugin-sdk`, with its upstream provenance and MIT/Apache license files.
+
+The vendored SDK snapshot is documented in `vendor/figcraft-plugin-sdk/README.md`. Compare it with the upstream SDK when updating FigCraft compatibility.
+
+The plugin uses documented FigCraft commands:
+- `view.get` to find the current view centre.
+- `vector.create` to create an editable vector from SVG path data.
+- `node.get` and `node.set` to read the new vector bounds and centre it precisely.
+- `save_file` to offer the SVG export to the user.
+
+## Requirements
+
+- Rust toolchain via [rustup](https://rustup.rs)
+- Node.js and npm
+- Python 3
+
+The build downloads the pinned `lucide-static@1.72.0` package. To intentionally use another compatible release, set `LUCIDE_VERSION` when running the build.
 
 ## Build on macOS
 
-Requirements:
-- Rust toolchain via [rustup](https://rustup.rs)
-- Node.js and npm (only to download the upstream icon package during the build)
-- Python 3
-
-From this folder:
+From the repository root:
 
 ```sh
-chmod +x build-wasm.sh
-./build-wasm.sh
+cd native-plugin
+bash build-wasm.sh
 ```
 
-The build creates `dist/figcraft-plugin.json`, `dist/lucide_companion.wasm` and the generated catalogue.
+The script generates `catalogue.json`, runs Python and Rust tests, checks Rust formatting, installs the `wasm32-unknown-unknown` target and builds the plugin.
+
+The output is:
+
+```text
+native-plugin/dist/
+├── figcraft-plugin.json
+├── lucide_companion.wasm
+└── assets/
+    └── LUCIDE-LICENSE.txt
+```
 
 ## Install in FigCraft
 
@@ -42,21 +65,23 @@ The build creates `dist/figcraft-plugin.json`, `dist/lucide_companion.wasm` and 
 2. In FigCraft, choose **Plugins → Development → Import plugin from manifest…**
 3. Select `native-plugin/dist/figcraft-plugin.json`.
 4. Open **Plugins → Lucide Companion → Lucide icon browser…**
-5. Search, select an icon and use **Insert editable vector** or **Export SVG**.
+5. Search for an icon, choose it, adjust its appearance, then insert or export it.
 
-FigCraft reads the WASM module beside the manifest. Keep the two files together.
+Keep the manifest, WASM module and `assets` folder together.
 
-## Sandbox and permissions
+## Permissions and sandbox
 
-The manifest requests document write access only for `view.get`, `vector.create` and `select.set`, plus the API 4 `saveFile` capability. The plugin has no filesystem or network access. Icon data is bundled at build time.
+The manifest requests document write access for `vector.create` and `node.set`, read access for `view.get` and `node.get`, and `saveFile` for SVG export. The plugin has no filesystem or network access of its own. The icon data is bundled at build time.
 
 ## Known prototype limitations
 
-- Search currently matches icon names, not upstream tags.
-- The panel uses a native list selector rather than a custom thumbnail grid; plugin panels do not support arbitrary custom layouts.
-- No favourites/recent list or Ink Icon collection yet.
-- This repository's CI build produces the WASM artifact; final verification of insertion and styling must be done inside the user's installed FigCraft desktop app.
+- Search matches icon names; Lucide tags and aliases are not included yet.
+- The native panel uses a list selector rather than a custom thumbnail grid.
+- No favourites, recent icons or Ink Icon collection yet.
+- Final insertion, visual styling and export still need to be checked in the installed FigCraft desktop app.
 
-## License
+## Licences
 
-Plugin source: MIT. Bundled Lucide icon data: ISC, as published by the Lucide project.
+- Plugin code: MIT.
+- Vendored FigCraft SDK: MIT OR Apache-2.0; see `vendor/figcraft-plugin-sdk/`.
+- Lucide icon data: ISC, with the upstream licence included in the built bundle at `assets/LUCIDE-LICENSE.txt`.
