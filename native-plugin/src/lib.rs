@@ -233,7 +233,6 @@ fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
         "y":cy - 12.0,
         "width":24,
         "height":24,
-        "props":{"clipContent":true}
     }))?;
     let frame_id = frame.get("id").and_then(Value::as_u64)
         .ok_or("FigCraft did not return the new icon frame ID")?;
