@@ -162,6 +162,37 @@ fn selected_icon(values: &Value) -> Result<Icon> {
     find_icon(name).ok_or_else(|| "Choose an icon from the search results first".into())
 }
 
+fn create_vector(
+    icon: &Icon,
+    size: f64,
+    stroke_width: f64,
+    stroke: &str,
+    size_by_height: bool,
+) -> Result<Value> {
+    let size_property = if size_by_height {
+        json!({"height":size})
+    } else {
+        json!({"width":size})
+    };
+    let mut params = json!({
+        "path": icon.path,
+        "name": icon.name,
+        "props": {
+            "fill": "none",
+            "stroke": stroke,
+            "strokeWeight": stroke_width,
+            "strokeCap": "round",
+            "strokeJoin": "round"
+        }
+    });
+    if let (Some(target), Some(source)) = (params.as_object_mut(), size_property.as_object()) {
+        for (key, value) in source {
+            target.insert(key.clone(), value.clone());
+        }
+    }
+    call("vector.create", &params)
+}
+
 fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
     let size = number(values, "size", 24.0, 8.0, 512.0);
     let stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
@@ -172,21 +203,15 @@ fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
     let cy = view.get("cy").and_then(Value::as_f64).unwrap_or(0.0);
 
     // Supplying only width preserves each icon's original aspect ratio.
-    let created = call(
-        "vector.create",
-        &json!({
-            "path": icon.path,
-            "width": size,
-            "name": icon.name,
-            "props": {
-                "fill": "none",
-                "stroke": stroke,
-                "strokeWeight": stroke_width,
-                "strokeCap": "round",
-                "strokeJoin": "round"
-            }
-        }),
-    )?;
+    // Width preserves the normal icon aspect ratio. A few Lucide symbols are only vertical
+    // lines and have no horizontal extent; for those, retry with height instead.
+    let created = match create_vector(icon, size, stroke_width, &stroke, false) {
+        Ok(value) => value,
+        Err(error) if error.contains("no horizontal extent") => {
+            create_vector(icon, size, stroke_width, &stroke, true)?
+        }
+        Err(error) => return Err(error),
+    };
 
     let id = created
         .get("id")
