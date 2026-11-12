@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 figcraft-plugin-sdk = { git = "https://github.com/storytold/figcraft", package = "figcraft-plugin-sdk" }
+serde_json = "1"
 
 [profile.release]
 opt-level = "z"
