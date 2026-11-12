@@ -15,8 +15,8 @@ Lucide Companion is a native WebAssembly plugin for FigCraft. It is separate fro
 - Includes Insert vector, Refresh list (clears the search and returns to page 1), and Export SVG actions.
 - Provides page navigation when a search returns more than 64 icons.
 - Creates a dedicated square frame named after each selected icon, centred in the current view.
-- Inserts the icon as an editable vector child of that frame using `vector.create` with an explicit `parent`.
-- Preserves the vector's aspect ratio and centres its actual path bounds inside the frame.
+- Inserts the icon into a dedicated 24 × 24 frame using the original Lucide SVG viewBox coordinates.
+- Preserves each source SVG element as a separate editable vector child; it does not combine, scale or manually recenter the paths.
 - Exports the selected icon as an SVG file through FigCraft's `save_file` capability.
 
 The panel uses FigCraft's native controls. It is a floating, draggable panel, not a dockable sidebar or a custom thumbnail grid.
@@ -30,8 +30,7 @@ The vendored SDK snapshot is documented in `vendor/figcraft-plugin-sdk/README.md
 The plugin uses documented FigCraft commands:
 - `view.get` to find the current view centre.
 - `node.create` to create a dedicated square frame for the icon.
-- `vector.create` with the frame ID as `parent` to create an editable child vector from SVG path data.
-- `node.get` and `node.set` to read the vector bounds and centre it inside the frame.
+- `vector.create` with the frame ID as `parent` to create editable child vectors from the source SVG elements.
 - `save_file` to offer the SVG export to the user.
 
 ## Requirements
@@ -81,7 +80,6 @@ The manifest requests document write access for `node.create`, `vector.create` a
 
 - Search matches icon names; Lucide tags and aliases are not included yet.
 - The native panel uses FigCraft's native selection menu, which is limited to 64 options per field; larger result sets are paged in groups of 64 rather than shown in one custom scrollable list.
-- Icon thumbnails beside every row are not supported by the native panel API; the selected icon name and appearance are shown separately.
 - Icon thumbnails beside every row are not supported by the native panel API; the selected icon name and appearance are shown separately.
 - No favourites, recent icons or Ink Icon collection yet.
 - Final insertion, visual styling and export still need to be checked in the installed FigCraft desktop app.
