@@ -47,7 +47,7 @@ cd native-plugin
 bash build-wasm.sh
 ```
 
-The script generates `catalogue.json`, runs Python and Rust tests, checks Rust formatting, installs the `wasm32-unknown-unknown` target and builds the plugin.
+The script generates `catalogue.json`, runs Python and Rust tests, installs the `wasm32-unknown-unknown` target and builds the plugin.
 
 The output is:
 
