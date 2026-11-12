@@ -203,6 +203,7 @@ fn selected_icon(values: &Value) -> Result<Icon> {
 
 fn create_vector(
     icon: &Icon,
+    parent: u64,
     size: f64,
     stroke_width: f64,
     stroke: &str,
@@ -215,7 +216,11 @@ fn create_vector(
     };
     let mut params = json!({
         "path": icon.path,
-        "name": icon.name,
+        "name": format!("{} vector", icon.name),
+        "parent": parent,
+        "x": 0,
+        "y": 0,
+        "select": false,
         "props": {
             "fill": "none",
             "stroke": stroke,
@@ -241,38 +246,63 @@ fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
     let cx = view.get("cx").and_then(Value::as_f64).unwrap_or(0.0);
     let cy = view.get("cy").and_then(Value::as_f64).unwrap_or(0.0);
 
-    // Supplying only width preserves each icon's original aspect ratio.
-    // Width preserves the normal icon aspect ratio. A few Lucide symbols are only vertical
-    // lines and have no horizontal extent; for those, retry with height instead.
-    let created = match create_vector(icon, size, stroke_width, &stroke, false) {
+    // Make a square frame at the centre of the current view. The vector is created as
+    // a child of this frame, not as a page-level layer.
+    let frame = call(
+        "node.create",
+        &json!({
+            "type":"frame",
+            "name":icon.name,
+            "x":cx - size / 2.0,
+            "y":cy - size / 2.0,
+            "width":size,
+            "height":size
+        }),
+    )?;
+    let frame_id = frame
+        .get("id")
+        .and_then(Value::as_u64)
+        .ok_or("FigCraft did not return the new icon frame ID")?;
+
+    // Supplying only width preserves the icon's aspect ratio. A few Lucide symbols are
+    // vertical-only paths, so retry those with height instead.
+    let created = match create_vector(icon, frame_id, size, stroke_width, &stroke, false) {
         Ok(value) => value,
         Err(error) if error.contains("no horizontal extent") => {
-            create_vector(icon, size, stroke_width, &stroke, true)?
+            create_vector(icon, frame_id, size, stroke_width, &stroke, true)?
         }
         Err(error) => return Err(error),
     };
 
-    let id = created
+    let vector_id = created
         .get("id")
         .and_then(Value::as_u64)
         .ok_or("FigCraft did not return the new vector layer ID")?;
 
-    // Read the actual vector bounds, then position the layer by its bounds so it is centred
-    // correctly even when the icon path does not start at (0, 0) or is not square.
-    let bounds = call("node.get", &json!({"id":id,"fields":["width","height"]}))?;
+    // Centre the actual path bounds inside the square frame. This also handles icons
+    // whose path is not square or whose geometry does not start at (0, 0).
+    let bounds = call(
+        "node.get",
+        &json!({"id":vector_id,"fields":["width","height"]}),
+    )?;
     let width = bounds.get("width").and_then(Value::as_f64).unwrap_or(size);
     let height = bounds.get("height").and_then(Value::as_f64).unwrap_or(size);
     call(
         "node.set",
         &json!({
-            "ids":[id],
-            "x":cx - width / 2.0,
-            "y":cy - height / 2.0
+            "ids":[vector_id],
+            "x":(size - width) / 2.0,
+            "y":(size - height) / 2.0
         }),
     )?;
 
-    notify(&format!("Inserted {} as an editable vector", icon.name));
-    Ok(json!({"inserted":icon.name,"size":size,"id":id}))
+    notify(&format!("Inserted {} inside a {} × {} frame", icon.name, size, size));
+    Ok(json!({
+        "inserted":icon.name,
+        "frameId":frame_id,
+        "vectorId":vector_id,
+        "size":size
+    }))
 }
 
 fn export_icon(icon: &Icon, values: &Value) -> Result<Value> {
