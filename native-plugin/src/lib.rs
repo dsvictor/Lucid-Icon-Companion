@@ -117,13 +117,18 @@ fn panel(values: &Value) -> Result<Value> {
 
     let selected_size = number(values, "size", 24.0, 8.0, 512.0);
     let selected_stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
+    let selection_summary = if selected.is_empty() {
+        "No icon selected".to_string()
+    } else {
+        format!(
+            "Selected: {} · {} × {} · Stroke {}",
+            selected, selected_size, selected_size, selected_stroke_width
+        )
+    };
     controls.extend([
         json!({
             "type":"note",
-            "label":format!(
-                "Selected: {} · {} × {} · Stroke {}",
-                selected, selected_size, selected_size, selected_stroke_width
-            )
+            "label":selection_summary
         }),
         json!({"type":"button","name":"insert","label":"Insert vector"}),
         json!({"type":"button","name":"refresh","label":"Refresh list"}),
