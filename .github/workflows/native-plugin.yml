@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - native-plugin/api6-prototype
+      - native-plugin/feature/svg-preview
     paths:
       - "native-plugin/**"
       - ".github/workflows/native-plugin.yml"
