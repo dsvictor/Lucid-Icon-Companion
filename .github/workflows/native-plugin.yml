@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - native-plugin/api6-prototype
+      - native-plugin/feature/svg-preview
     paths:
       - "native-plugin/**"
       - ".github/workflows/native-plugin.yml"
@@ -26,7 +27,12 @@ jobs:
         with:
           node-version: 22
 
-      - name: Build plugin and bundle Lucide catalogue
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Test and build plugin
         run: bash native-plugin/build-wasm.sh
 
       - name: Upload plugin bundle
