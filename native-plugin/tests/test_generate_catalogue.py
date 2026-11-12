@@ -25,12 +25,12 @@ class SvgPathTests(unittest.TestCase):
     def test_rect_supports_rounded_corners(self):
         path = path_for(self.element('<rect x="1" y="2" width="20" height="12" rx="2"/>'))
         self.assertTrue(path.startswith("M3 2"))
-        self.assertIn("q", path)
+        self.assertIn("a", path)
         self.assertTrue(path.endswith("Z"))
 
-    def test_circle_and_ellipse_become_curves(self):
-        self.assertIn("C", path_for(self.element('<circle cx="12" cy="12" r="5"/>')))
-        self.assertIn("C", path_for(self.element('<ellipse cx="12" cy="12" rx="6" ry="3"/>')))
+    def test_circle_and_ellipse_use_exact_arc_geometry(self):
+        self.assertIn("a", path_for(self.element('<circle cx="12" cy="12" r="5"/>')))
+        self.assertIn("a", path_for(self.element('<ellipse cx="12" cy="12" rx="6" ry="3"/>')))
 
     def test_catalogue_preserves_individual_elements_and_viewbox(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -45,7 +45,8 @@ class SvgPathTests(unittest.TestCase):
             self.assertEqual(icons[0]["viewBox"], "0 0 24 24")
             self.assertEqual(len(icons[0]["paths"]), 2)
             self.assertEqual(icons[0]["paths"][0], "M2 12h20")
-            self.assertIn("C", icons[0]["paths"][1])
+            self.assertIn("a", icons[0]["paths"][1])
+            self.assertIn("<circle", icons[0]["svg"])
 
 
 if __name__ == "__main__":
