@@ -103,13 +103,13 @@ fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
     let created = call(
         "vector.create",
         &json!({
-            "path": icon.path,
+            "path": icon.path.clone(),
             "x": cx - size / 2.0,
             "y": cy - size / 2.0,
             "width": size,
             "height": size,
             "props": {
-                "name": icon.name,
+                "name": icon.name.clone(),
                 "fill": "none",
                 "stroke": stroke,
                 "strokeWeight": stroke_width,
@@ -124,7 +124,7 @@ fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
     }
 
     notify(&format!("Inserted {} as an editable vector", icon.name));
-    Ok(json!({"inserted":icon.name,"size":size}))
+    Ok(json!({"inserted":icon.name.clone(),"size":size}))
 }
 
 fn export_icon(icon: &Icon, values: &Value) -> Result<Value> {
@@ -137,7 +137,7 @@ fn export_icon(icon: &Icon, values: &Value) -> Result<Value> {
     );
     save_file(&format!("{}.svg", icon.name), "image/svg+xml", svg.as_bytes())?;
     notify(&format!("Exporting {}.svg", icon.name));
-    Ok(json!({"exported":icon.name}))
+    Ok(json!({"exported":icon.name.clone()}))
 }
 
 fn run(input: Input) -> Result<Value> {
