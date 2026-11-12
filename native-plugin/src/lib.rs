@@ -87,10 +87,15 @@ fn panel(values: &Value) -> Result<Value> {
         }));
     }
 
+    let selected_size = number(values, "size", 24.0, 8.0, 512.0);
+    let selected_stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
     controls.extend([
         json!({
             "type":"note",
-            "label":format!("Selected: {} · 24 × 24 · Stroke 2", selected)
+            "label":format!(
+                "Selected: {} · {} × {} · Stroke {}",
+                selected, selected_size, selected_size, selected_stroke_width
+            )
         }),
         json!({"type":"button","name":"insert","label":"Insert vector"}),
         json!({"type":"button","name":"refresh","label":"Refresh list"}),
