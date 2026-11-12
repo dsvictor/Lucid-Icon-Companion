@@ -1,8 +1,8 @@
 {
   "id": "com.jayanta.lucide-companion",
   "name": "Lucide Companion",
-  "version": "0.1.0",
-  "description": "Search Lucide icons, insert editable vector layers and export SVG files.",
+  "version": "0.2.0",
+  "description": "Search Lucide icons with previews, insert vector layers and export original SVGs.",
   "author": "Jayanta",
   "main": "lucide_companion.wasm",
   "api": 6,
