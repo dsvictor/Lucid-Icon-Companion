@@ -14,8 +14,9 @@ Lucide Companion is a native WebAssembly plugin for FigCraft. It is separate fro
 - Provides icon size, stroke width and stroke colour controls.
 - Includes Insert vector, Refresh list (clears the search and returns to page 1), and Export SVG actions.
 - Provides page navigation when a search returns more than 64 icons.
-- Inserts the selected icon as an editable FigCraft vector layer using `vector.create`.
-- Preserves the vector's aspect ratio and centres the created layer in the current view.
+- Creates a dedicated square frame named after each selected icon, centred in the current view.
+- Inserts the icon as an editable vector child of that frame using `vector.create` with an explicit `parent`.
+- Preserves the vector's aspect ratio and centres its actual path bounds inside the frame.
 - Exports the selected icon as an SVG file through FigCraft's `save_file` capability.
 
 The panel uses FigCraft's native controls. It is a floating, draggable panel, not a dockable sidebar or a custom thumbnail grid.
@@ -28,8 +29,9 @@ The vendored SDK snapshot is documented in `vendor/figcraft-plugin-sdk/README.md
 
 The plugin uses documented FigCraft commands:
 - `view.get` to find the current view centre.
-- `vector.create` to create an editable vector from SVG path data.
-- `node.get` and `node.set` to read the new vector bounds and centre it precisely.
+- `node.create` to create a dedicated square frame for the icon.
+- `vector.create` with the frame ID as `parent` to create an editable child vector from SVG path data.
+- `node.get` and `node.set` to read the vector bounds and centre it inside the frame.
 - `save_file` to offer the SVG export to the user.
 
 ## Requirements
@@ -73,7 +75,7 @@ Keep the manifest, WASM module and `assets` folder together.
 
 ## Permissions and sandbox
 
-The manifest requests document write access for `vector.create` and `node.set`, read access for `view.get` and `node.get`, and `saveFile` for SVG export. The plugin has no filesystem or network access of its own. The icon data is bundled at build time.
+The manifest requests document write access for `node.create`, `vector.create` and `node.set`, read access for `view.get` and `node.get`, and `saveFile` for SVG export. The plugin has no filesystem or network access of its own. The icon data is bundled at build time.
 
 ## Known prototype limitations
 
