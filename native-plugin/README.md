@@ -2,7 +2,7 @@
 
 **Author:** Jayanta  
 **Status:** Prototype / first native-plugin implementation  
-**Target:** FigCraft desktop, plugin API 4 (compatible with the current API 6 runtime)
+**Target:** FigCraft desktop, plugin API 6
 
 This is a native WebAssembly plugin, separate from the existing Rust/egui macOS companion. The desktop companion remains untouched on the main branch.
 
@@ -16,9 +16,9 @@ This is a native WebAssembly plugin, separate from the existing Rust/egui macOS 
 - Exports the selected icon as SVG through FigCraft's own Save dialog.
 - Uses FigCraft's native panel controls and persistent plugin installation.
 
-## Why API 4?
+## API compatibility
 
-The current plugin only needs the panel/settings ABI and `save_file` (API 4). FigCraft's API 6 adds SVG and line drawing to canvas widgets, but widgets are not needed for this first implementation: `vector.create` creates editable document vectors directly. The plugin can run on API 6 while declaring the lowest API it actually uses.
+The manifest targets API 6, matching FigCraft v0.18.1. The implementation uses the native floating-panel and file-save capabilities, while inserting icons with `vector.create` so they become normal editable vector layers. API 6's SVG widget drawing is intentionally not used for the inserted artwork: widget contents are locked as a widget layer, whereas these icons should remain directly editable.
 
 ## Build on macOS
 
