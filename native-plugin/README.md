@@ -10,8 +10,9 @@ Lucide Companion is a native WebAssembly plugin for FigCraft. It is separate fro
 
 - Bundles the official `lucide-static` SVG icon set into the WebAssembly module.
 - Searches icon names locally; no network access is used by the plugin.
-- Shows up to 48 matching icon names in FigCraft's native floating panel and reports the total match count.
+- Searches the complete bundled Lucide catalogue and exposes every matching icon in the native selection menu (no 48-result cap).
 - Provides icon size, stroke width and stroke colour controls.
+- Includes Insert vector, Refresh list (clears the search and restores the full catalogue), and Export SVG actions.
 - Inserts the selected icon as an editable FigCraft vector layer using `vector.create`.
 - Preserves the vector's aspect ratio and centres the created layer in the current view.
 - Exports the selected icon as an SVG file through FigCraft's `save_file` capability.
@@ -65,7 +66,7 @@ native-plugin/dist/
 2. In FigCraft, choose **Plugins → Development → Import plugin from manifest…**
 3. Select `native-plugin/dist/figcraft-plugin.json`.
 4. Open **Plugins → Lucide Companion → Lucide icon browser…**
-5. Search for an icon, choose it, adjust its appearance, then insert or export it.
+5. Search for an icon, open the selection menu and scroll through all matching names, choose one, adjust its appearance, then insert or export it. Use **Refresh list** to clear the search and show the full catalogue again.
 
 Keep the manifest, WASM module and `assets` folder together.
 
@@ -76,7 +77,8 @@ The manifest requests document write access for `vector.create` and `node.set`, 
 ## Known prototype limitations
 
 - Search matches icon names; Lucide tags and aliases are not included yet.
-- The native panel uses a list selector rather than a custom thumbnail grid.
+- The native panel uses FigCraft's native selection menu; its options are searchable and the full result set is available through the menu rather than a custom thumbnail grid.
+- Icon thumbnails beside every row are not supported by the native panel API; the selected icon name and appearance are shown separately.
 - No favourites, recent icons or Ink Icon collection yet.
 - Final insertion, visual styling and export still need to be checked in the installed FigCraft desktop app.
 
