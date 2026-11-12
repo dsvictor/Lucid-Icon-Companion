@@ -1,9 +1,8 @@
 use figcraft_plugin_sdk::{
-    Input, Result, Value, call, close_ui, entry, json, notify, save_file, show_ui,
+    Input, Result, Value, call, entry, json, notify, save_file, show_ui,
 };
 
 const CATALOGUE: &str = include_str!("../catalogue.json");
-const MAX_RESULTS: usize = 48;
 const DEFAULT_STROKE: &str = "#202020";
 
 #[derive(Clone, Debug)]
@@ -52,9 +51,8 @@ fn results(query: &str) -> Vec<String> {
 
 fn panel(values: &Value) -> Result<Value> {
     let query = values.get("query").and_then(Value::as_str).unwrap_or("");
-    let mut options = results(query);
+    let options = results(query);
     let total_matches = options.len();
-    options.truncate(MAX_RESULTS);
 
     let current = values.get("icon").and_then(Value::as_str).unwrap_or("");
     let selected = if options.iter().any(|name| name == current) {
@@ -68,9 +66,8 @@ fn panel(values: &Value) -> Result<Value> {
         json!({
             "type":"note",
             "label":format!(
-                "{} matches · {} available in the icon menu.",
-                total_matches,
-                options.len()
+                "{} icons found. Choose an icon from the scrollable list.",
+                total_matches
             )
         }),
     ];
@@ -92,6 +89,13 @@ fn panel(values: &Value) -> Result<Value> {
 
     controls.extend([
         json!({
+            "type":"note",
+            "label":format!("Selected: {} · 24 × 24 · Stroke 2", selected)
+        }),
+        json!({"type":"button","name":"insert","label":"Insert vector"}),
+        json!({"type":"button","name":"refresh","label":"Refresh list"}),
+        json!({"type":"button","name":"export","label":"Export SVG"}),
+        json!({
             "type":"number",
             "name":"size",
             "label":"Icon size (px)",
@@ -112,10 +116,7 @@ fn panel(values: &Value) -> Result<Value> {
             "name":"stroke",
             "label":"Stroke colour",
             "value":values.get("stroke").and_then(Value::as_str).unwrap_or(DEFAULT_STROKE)
-        }),
-        json!({"type":"button","name":"insert","label":"Insert editable vector"}),
-        json!({"type":"button","name":"export","label":"Export SVG"}),
-        json!({"type":"button","name":"close","label":"Close"})
+        })
     ]);
 
     show_ui(&json!({"title":"Lucide Companion","controls":controls}))?;
@@ -258,7 +259,14 @@ fn run(input: Input) -> Result<Value> {
     if let Some(event) = input.event {
         let values = event.values;
         return match event.control.as_str() {
-            "query" | "icon" => panel(&values),
+            "query" | "icon" | "size" | "strokeWidth" | "stroke" => panel(&values),
+            "refresh" => {
+                let mut refreshed = values.clone();
+                if let Some(fields) = refreshed.as_object_mut() {
+                    fields.insert("query".into(), json!(""));
+                }
+                panel(&refreshed)
+            }
             "insert" => {
                 let icon = selected_icon(&values)?;
                 insert_icon(&icon, &values)
@@ -266,10 +274,6 @@ fn run(input: Input) -> Result<Value> {
             "export" => {
                 let icon = selected_icon(&values)?;
                 export_icon(&icon, &values)
-            }
-            "close" => {
-                close_ui();
-                Ok(Value::Null)
             }
             _ => panel(&values),
         };
@@ -325,6 +329,21 @@ mod tests {
             matching_names(&icons, ""),
             vec!["activity", "arrow-left", "calendar-days"]
         );
+    }
+
+
+    #[test]
+    fn search_returns_the_entire_large_catalogue_without_a_ui_result_cap() {
+        let icons: Vec<Icon> = (0..2_400)
+            .map(|index| Icon {
+                name: format!("icon-{index:04}"),
+                path: "M0 0L1 1".into(),
+            })
+            .collect();
+        let matches = matching_names(&icons, "");
+        assert_eq!(matches.len(), 2_400);
+        assert_eq!(matches.first().map(String::as_str), Some("icon-0000"));
+        assert_eq!(matches.last().map(String::as_str), Some("icon-2399"));
     }
 
     #[test]
