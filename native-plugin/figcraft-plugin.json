@@ -9,7 +9,7 @@
   "permissions": {
     "access": "write",
     "saveFile": true,
-    "commands": ["view.get", "vector.create", "node.get", "node.set"]
+    "commands": ["view.get", "node.create", "vector.create", "node.get", "node.set"]
   },
   "commands": [
     {
