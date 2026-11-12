@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert lucide-static SVG assets into SVG path data for the WASM plugin."""
+"""Convert Lucide SVG assets into separate editable FigCraft vector paths."""
 
 import json
 import math
@@ -48,24 +48,17 @@ def path_for(element):
         width, height = number(element, "width"), number(element, "height")
         if width <= 0 or height <= 0:
             return ""
-
         rx = number(element, "rx", number(element, "ry"))
         ry = number(element, "ry", rx)
         rx = min(max(rx, 0.0), width / 2.0)
         ry = min(max(ry, 0.0), height / 2.0)
-
         if rx == 0 or ry == 0:
             return f"M{x:g} {y:g}h{width:g}v{height:g}h{-width:g}Z"
-
         return (
-            f"M{x + rx:g} {y:g}"
-            f"h{width - 2 * rx:g}"
-            f"q{rx:g} 0 {rx:g} {ry:g}"
-            f"v{height - 2 * ry:g}"
-            f"q0 {ry:g} {-rx:g} {ry:g}"
-            f"h{-width + 2 * rx:g}"
-            f"q{-rx:g} 0 {-rx:g} {-ry:g}"
-            f"v{-height + 2 * ry:g}"
+            f"M{x + rx:g} {y:g}h{width - 2 * rx:g}"
+            f"q{rx:g} 0 {rx:g} {ry:g}v{height - 2 * ry:g}"
+            f"q0 {ry:g} {-rx:g} {ry:g}h{-width + 2 * rx:g}"
+            f"q{-rx:g} 0 {-rx:g} {-ry:g}v{-height + 2 * ry:g}"
             f"q0 {-ry:g} {rx:g} {-ry:g}Z"
         )
 
@@ -83,7 +76,6 @@ def path_for(element):
             f"C{cx+rx:g} {cy+k*ry:g} {cx+k*rx:g} {cy+ry:g} {cx:g} {cy+ry:g}"
             f"C{cx-k*rx:g} {cy+ry:g} {cx-rx:g} {cy+k*ry:g} {cx-rx:g} {cy:g}Z"
         )
-
     return ""
 
 
@@ -96,35 +88,36 @@ def build_catalogue(source):
     for svg_file in sorted(source.glob("*.svg")):
         try:
             root = ET.parse(svg_file).getroot()
-            path_data = " ".join(
-                path for path in (path_for(element) for element in root.iter()) if path
-            )
+            view_box = root.attrib.get("viewBox", "0 0 24 24")
+            vb = [float(part) for part in view_box.replace(",", " ").split()]
+            if len(vb) != 4 or not all(math.isfinite(v) for v in vb):
+                raise ValueError("invalid SVG viewBox")
+            # Lucide's native artwork uses a 24×24 origin-based coordinate system.
+            if vb != [0.0, 0.0, 24.0, 24.0]:
+                raise ValueError(f"unexpected Lucide viewBox: {view_box}")
+            paths = [
+                path for element in root.iter()
+                if (path := path_for(element))
+            ]
         except (ET.ParseError, OSError, ValueError) as error:
             print(f"Skipping {svg_file.name}: {error}", file=sys.stderr)
             continue
 
-        if path_data:
-            icons.append({"name": svg_file.stem, "path": path_data})
+        if paths:
+            icons.append({"name": svg_file.stem, "viewBox": "0 0 24 24", "paths": paths})
 
     if not icons:
-        raise SystemExit(
-            f"No usable Lucide icons found in {source}. "
-            "Check the installed lucide-static package layout."
-        )
+        raise SystemExit(f"No usable Lucide icons found in {source}.")
     return icons
 
 
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("usage: generate_catalogue.py ICONS_DIRECTORY OUTPUT_JSON")
-
     icons = build_catalogue(sys.argv[1])
     output = pathlib.Path(sys.argv[2])
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps({"icons": icons}, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
+    output.write_text(json.dumps({"icons": icons}, separators=(",", ":")) + "\n", encoding="utf-8")
     print(f"Bundled {len(icons)} Lucide icons into {output}")
 
 
