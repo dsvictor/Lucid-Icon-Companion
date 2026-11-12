@@ -4,6 +4,7 @@ use figcraft_plugin_sdk::{
 
 const CATALOGUE: &str = include_str!("../catalogue.json");
 const DEFAULT_STROKE: &str = "#202020";
+const PAGE_SIZE: usize = 64;
 
 #[derive(Clone, Debug)]
 struct Icon {
@@ -49,10 +50,27 @@ fn results(query: &str) -> Vec<String> {
     matching_names(&catalogue(), query)
 }
 
+fn page_count(total: usize) -> usize {
+    total.div_ceil(PAGE_SIZE).max(1)
+}
+
+fn page_names(names: &[String], page: usize) -> Vec<String> {
+    let start = page.saturating_sub(1) * PAGE_SIZE;
+    names.iter().skip(start).take(PAGE_SIZE).cloned().collect()
+}
+
 fn panel(values: &Value) -> Result<Value> {
     let query = values.get("query").and_then(Value::as_str).unwrap_or("");
-    let options = results(query);
-    let total_matches = options.len();
+    let all_matches = results(query);
+    let total_matches = all_matches.len();
+    let pages = page_count(total_matches);
+    let requested_page = values
+        .get("page")
+        .and_then(Value::as_str)
+        .and_then(|page| page.parse::<usize>().ok())
+        .unwrap_or(1);
+    let current_page = requested_page.clamp(1, pages);
+    let options = page_names(&all_matches, current_page);
 
     let current = values.get("icon").and_then(Value::as_str).unwrap_or("");
     let selected = if options.iter().any(|name| name == current) {
@@ -66,8 +84,8 @@ fn panel(values: &Value) -> Result<Value> {
         json!({
             "type":"note",
             "label":format!(
-                "{} icons found. Choose an icon from the scrollable list.",
-                total_matches
+                "{} icons found · Page {} of {}.",
+                total_matches, current_page, pages
             )
         }),
     ];
@@ -84,6 +102,16 @@ fn panel(values: &Value) -> Result<Value> {
         controls.push(json!({
             "type":"note",
             "label":"No icons match this search. Try another name."
+        }));
+    }
+
+    if pages > 1 {
+        controls.push(json!({
+            "type":"select",
+            "name":"page",
+            "label":"Page",
+            "options":(1..=pages).map(|page| page.to_string()).collect::<Vec<_>>(),
+            "value":current_page.to_string()
         }));
     }
 
@@ -264,11 +292,19 @@ fn run(input: Input) -> Result<Value> {
     if let Some(event) = input.event {
         let values = event.values;
         return match event.control.as_str() {
-            "query" | "icon" | "size" | "strokeWidth" | "stroke" => panel(&values),
+            "query" => {
+                let mut searched = values.clone();
+                if let Some(fields) = searched.as_object_mut() {
+                    fields.insert("page".into(), json!("1"));
+                }
+                panel(&searched)
+            }
+            "icon" | "page" | "size" | "strokeWidth" | "stroke" => panel(&values),
             "refresh" => {
                 let mut refreshed = values.clone();
                 if let Some(fields) = refreshed.as_object_mut() {
                     fields.insert("query".into(), json!(""));
+                    fields.insert("page".into(), json!("1"));
                 }
                 panel(&refreshed)
             }
@@ -298,6 +334,7 @@ fn run(input: Input) -> Result<Value> {
     let defaults = json!({
         "query":"",
         "icon":first_icon,
+        "page":"1",
         "size":24,
         "strokeWidth":2,
         "stroke":DEFAULT_STROKE
@@ -349,6 +386,18 @@ mod tests {
         assert_eq!(matches.len(), 2_400);
         assert_eq!(matches.first().map(String::as_str), Some("icon-0000"));
         assert_eq!(matches.last().map(String::as_str), Some("icon-2399"));
+    }
+
+
+    #[test]
+    fn large_catalogues_are_browsable_in_pages_of_64() {
+        let names: Vec<String> = (0..2_400).map(|index| format!("icon-{index:04}")).collect();
+        assert_eq!(page_count(names.len()), 38);
+        assert_eq!(page_names(&names, 1).len(), 64);
+        assert_eq!(page_names(&names, 2).len(), 64);
+        assert_eq!(page_names(&names, 38).len(), 32);
+        assert_eq!(page_names(&names, 38).first().map(String::as_str), Some("icon-2368"));
+        assert!(page_names(&names, 39).is_empty());
     }
 
     #[test]
