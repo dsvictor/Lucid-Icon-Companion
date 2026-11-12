@@ -10,9 +10,10 @@ Lucide Companion is a native WebAssembly plugin for FigCraft. It is separate fro
 
 - Bundles the official `lucide-static` SVG icon set into the WebAssembly module.
 - Searches icon names locally; no network access is used by the plugin.
-- Searches the complete bundled Lucide catalogue and exposes every matching icon in the native selection menu (no 48-result cap).
+- Searches the complete bundled Lucide catalogue and exposes all matches through a compact native selection menu, paged in groups of 64 to respect FigCraft's per-menu option limit.
 - Provides icon size, stroke width and stroke colour controls.
-- Includes Insert vector, Refresh list (clears the search and restores the full catalogue), and Export SVG actions.
+- Includes Insert vector, Refresh list (clears the search and returns to page 1), and Export SVG actions.
+- Provides page navigation when a search returns more than 64 icons.
 - Inserts the selected icon as an editable FigCraft vector layer using `vector.create`.
 - Preserves the vector's aspect ratio and centres the created layer in the current view.
 - Exports the selected icon as an SVG file through FigCraft's `save_file` capability.
@@ -66,7 +67,7 @@ native-plugin/dist/
 2. In FigCraft, choose **Plugins → Development → Import plugin from manifest…**
 3. Select `native-plugin/dist/figcraft-plugin.json`.
 4. Open **Plugins → Lucide Companion → Lucide icon browser…**
-5. Search for an icon, open the selection menu and scroll through all matching names, choose one, adjust its appearance, then insert or export it. Use **Refresh list** to clear the search and show the full catalogue again.
+5. Search for an icon, open the selection menu and scroll through the current group of up to 64 names, choose one, use the page selector to browse further groups, adjust its appearance, then insert or export it. Use **Refresh list** to clear the search and return to the full catalogue.
 
 Keep the manifest, WASM module and `assets` folder together.
 
@@ -77,7 +78,8 @@ The manifest requests document write access for `vector.create` and `node.set`, 
 ## Known prototype limitations
 
 - Search matches icon names; Lucide tags and aliases are not included yet.
-- The native panel uses FigCraft's native selection menu; its options are searchable and the full result set is available through the menu rather than a custom thumbnail grid.
+- The native panel uses FigCraft's native selection menu, which is limited to 64 options per field; larger result sets are paged in groups of 64 rather than shown in one custom scrollable list.
+- Icon thumbnails beside every row are not supported by the native panel API; the selected icon name and appearance are shown separately.
 - Icon thumbnails beside every row are not supported by the native panel API; the selected icon name and appearance are shown separately.
 - No favourites, recent icons or Ink Icon collection yet.
 - Final insertion, visual styling and export still need to be checked in the installed FigCraft desktop app.
