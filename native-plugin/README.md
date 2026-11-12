@@ -1,7 +1,7 @@
 # Lucide Companion — Native FigCraft Plugin
 
 **Author:** Jayanta  
-**Status:** Native plugin prototype; compile and in-app verification are still required  
+**Status:** Preview and original-source improvements implemented; compile and in-app verification pending  
 **Target:** FigCraft plugin API 6
 
 Lucide Companion is a native WebAssembly plugin for FigCraft. It is separate from the existing Rust/egui macOS companion; the desktop app and its existing code are not changed by this plugin.
@@ -12,11 +12,14 @@ Lucide Companion is a native WebAssembly plugin for FigCraft. It is separate fro
 - Searches icon names locally; no network access is used by the plugin.
 - Searches the complete bundled Lucide catalogue and exposes all matches through a compact native selection menu, paged in groups of 64 to respect FigCraft's per-menu option limit.
 - Provides icon size, stroke width and stroke colour controls.
-- Includes Insert vector, Refresh list (clears the search and returns to page 1), and Export SVG actions.
+- Shows a selected-icon PNG preview in the floating panel.
+- Includes Insert vector, Refresh list (clears the search and returns to page 1), and Export original SVG actions.
 - Provides page navigation when a search returns more than 64 icons.
 - Creates a dedicated square frame named after each selected icon, centred in the current view.
 - Inserts the icon into a dedicated 24 × 24 frame using the original Lucide SVG viewBox coordinates.
-- Preserves each source SVG element as a separate editable vector child; it does not combine, scale or manually recenter the paths.
+- Retains the untouched upstream SVG source in the generated catalogue and exports that original source without rebuilding it.
+- Converts Lucide primitive elements to path geometry using exact arc commands for circles, ellipses and rounded rectangles; source path data is kept verbatim.
+- Keeps each vector’s own source-coordinate bounds on insertion rather than forcing every path to (0, 0), avoiding unintended translation of independent elements.
 - Exports the selected icon as an SVG file through FigCraft's `save_file` capability.
 
 The panel uses FigCraft's native controls. It is a floating, draggable panel, not a dockable sidebar or a custom thumbnail grid.
@@ -50,7 +53,7 @@ cd native-plugin
 bash build-wasm.sh
 ```
 
-The script generates `catalogue.json`, runs Python and Rust tests, installs the `wasm32-unknown-unknown` target and builds the plugin.
+The script downloads `lucide-static` and the Resvg renderer, generates a catalogue containing untouched SVG source plus editable path geometry, renders compact PNG previews, runs Python and Rust tests, installs the `wasm32-unknown-unknown` target and builds the plugin.
 
 The output is:
 
@@ -80,7 +83,7 @@ The manifest requests document write access for `node.create`, `vector.create` a
 
 - Search matches icon names; Lucide tags and aliases are not included yet.
 - The native panel uses FigCraft's native selection menu, which is limited to 64 options per field; larger result sets are paged in groups of 64 rather than shown in one custom scrollable list.
-- Icon thumbnails beside every row are not supported by the native panel API; the selected icon name and appearance are shown separately.
+- The panel displays one selected-icon preview, not a thumbnail grid; native panel image controls are limited to 256 KB each.
 - No favourites, recent icons or Ink Icon collection yet.
 - Final insertion, visual styling and export still need to be checked in the installed FigCraft desktop app.
 
