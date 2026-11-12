@@ -4,8 +4,9 @@ use figcraft_plugin_sdk::{
 
 const CATALOGUE: &str = include_str!("../catalogue.json");
 const MAX_RESULTS: usize = 48;
+const DEFAULT_STROKE: &str = "#202020";
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Icon {
     name: String,
     path: String,
@@ -13,14 +14,14 @@ struct Icon {
 
 fn catalogue() -> Vec<Icon> {
     let data: Value = serde_json::from_str(CATALOGUE).unwrap_or(Value::Null);
-    data["icons"]
-        .as_array()
+    data.get("icons")
+        .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(|item| {
             Some(Icon {
-                name: item["name"].as_str()?.to_string(),
-                path: item["path"].as_str()?.to_string(),
+                name: item.get("name")?.as_str()?.to_string(),
+                path: item.get("path")?.as_str()?.to_string(),
             })
         })
         .collect()
@@ -30,22 +31,32 @@ fn find_icon(name: &str) -> Option<Icon> {
     catalogue().into_iter().find(|icon| icon.name == name)
 }
 
-fn results(query: &str) -> Vec<String> {
-    let q = query.trim().to_lowercase();
-    let mut matches: Vec<String> = catalogue()
-        .into_iter()
-        .filter(|icon| q.is_empty() || icon.name.replace('-', " ").contains(&q) || icon.name.contains(&q))
-        .map(|icon| icon.name)
+fn matching_names(icons: &[Icon], query: &str) -> Vec<String> {
+    let query = query.trim().to_lowercase();
+    let mut matches: Vec<String> = icons
+        .iter()
+        .filter(|icon| {
+            query.is_empty()
+                || icon.name.to_lowercase().contains(&query)
+                || icon.name.replace('-', " ").contains(&query)
+        })
+        .map(|icon| icon.name.clone())
         .collect();
     matches.sort();
-    matches.truncate(MAX_RESULTS);
     matches
 }
 
+fn results(query: &str) -> Vec<String> {
+    matching_names(&catalogue(), query)
+}
+
 fn panel(values: &Value) -> Result<Value> {
-    let query = values["query"].as_str().unwrap_or("");
-    let options = results(query);
-    let current = values["icon"].as_str().unwrap_or("");
+    let query = values.get("query").and_then(Value::as_str).unwrap_or("");
+    let mut options = results(query);
+    let total_matches = options.len();
+    options.truncate(MAX_RESULTS);
+
+    let current = values.get("icon").and_then(Value::as_str).unwrap_or("");
     let selected = if options.iter().any(|name| name == current) {
         current.to_string()
     } else {
@@ -54,7 +65,14 @@ fn panel(values: &Value) -> Result<Value> {
 
     let mut controls = vec![
         json!({"type":"text","name":"query","label":"Search icons","value":query}),
-        json!({"type":"note","label":format!("{} matching icons shown (maximum {}).", options.len(), MAX_RESULTS)}),
+        json!({
+            "type":"note",
+            "label":format!(
+                "{} match(es); showing {} at most.",
+                total_matches,
+                options.len()
+            )
+        }),
     ];
 
     if !options.is_empty() {
@@ -66,13 +84,35 @@ fn panel(values: &Value) -> Result<Value> {
             "value":selected
         }));
     } else {
-        controls.push(json!({"type":"note","label":"No icons match this search. Try another name."}));
+        controls.push(json!({
+            "type":"note",
+            "label":"No icons match this search. Try another name."
+        }));
     }
 
     controls.extend([
-        json!({"type":"number","name":"size","label":"Icon size","min":8,"max":512,"value":values["size"].as_f64().unwrap_or(24.0)}),
-        json!({"type":"number","name":"strokeWidth","label":"Stroke width","min":0.5,"max":8,"value":values["strokeWidth"].as_f64().unwrap_or(2.0)}),
-        json!({"type":"color","name":"stroke","label":"Stroke colour","value":values["stroke"].as_str().unwrap_or("#202020")}),
+        json!({
+            "type":"number",
+            "name":"size",
+            "label":"Icon size (px)",
+            "min":8,
+            "max":512,
+            "value":values.get("size").and_then(Value::as_f64).unwrap_or(24.0)
+        }),
+        json!({
+            "type":"number",
+            "name":"strokeWidth",
+            "label":"Stroke width",
+            "min":0.5,
+            "max":8,
+            "value":values.get("strokeWidth").and_then(Value::as_f64).unwrap_or(2.0)
+        }),
+        json!({
+            "type":"color",
+            "name":"stroke",
+            "label":"Stroke colour",
+            "value":values.get("stroke").and_then(Value::as_str).unwrap_or(DEFAULT_STROKE)
+        }),
         json!({"type":"button","name":"insert","label":"Insert editable vector"}),
         json!({"type":"button","name":"export","label":"Export SVG"}),
         json!({"type":"button","name":"close","label":"Close"})
@@ -83,33 +123,62 @@ fn panel(values: &Value) -> Result<Value> {
 }
 
 fn number(values: &Value, key: &str, fallback: f64, min: f64, max: f64) -> f64 {
-    values[key].as_f64().unwrap_or(fallback).clamp(min, max)
+    values
+        .get(key)
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite())
+        .unwrap_or(fallback)
+        .clamp(min, max)
+}
+
+fn stroke_color(values: &Value) -> Result<String> {
+    let raw = values
+        .get("stroke")
+        .and_then(Value::as_str)
+        .unwrap_or(DEFAULT_STROKE)
+        .trim();
+    let hex = raw.strip_prefix('#').unwrap_or(raw);
+
+    if !hex.chars().all(|character| character.is_ascii_hexdigit()) {
+        return Err("Stroke colour must be a hexadecimal colour.".into());
+    }
+
+    match hex.len() {
+        3 => {
+            let mut expanded = String::from("#");
+            for character in hex.chars() {
+                expanded.push(character);
+                expanded.push(character);
+            }
+            Ok(expanded.to_ascii_uppercase())
+        }
+        6 => Ok(format!("#{}", hex.to_ascii_uppercase())),
+        _ => Err("Stroke colour must use #RGB or #RRGGBB.".into()),
+    }
 }
 
 fn selected_icon(values: &Value) -> Result<Icon> {
-    let name = values["icon"].as_str().unwrap_or("");
+    let name = values.get("icon").and_then(Value::as_str).unwrap_or("");
     find_icon(name).ok_or_else(|| "Choose an icon from the search results first".into())
 }
 
 fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
     let size = number(values, "size", 24.0, 8.0, 512.0);
     let stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
-    let stroke = values["stroke"].as_str().unwrap_or("#202020");
+    let stroke = stroke_color(values)?;
 
     let view = call("view.get", &json!({}))?;
-    let cx = view["cx"].as_f64().unwrap_or(0.0);
-    let cy = view["cy"].as_f64().unwrap_or(0.0);
+    let cx = view.get("cx").and_then(Value::as_f64).unwrap_or(0.0);
+    let cy = view.get("cy").and_then(Value::as_f64).unwrap_or(0.0);
 
+    // Supplying only width preserves each icon's original aspect ratio.
     let created = call(
         "vector.create",
         &json!({
-            "path": icon.path.clone(),
-            "x": cx - size / 2.0,
-            "y": cy - size / 2.0,
+            "path": icon.path,
             "width": size,
-            "height": size,
+            "name": icon.name,
             "props": {
-                "name": icon.name.clone(),
                 "fill": "none",
                 "stroke": stroke,
                 "strokeWeight": stroke_width,
@@ -119,25 +188,45 @@ fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
         }),
     )?;
 
-    if let Some(id) = created["id"].as_u64() {
-        let _ = call("select.set", &json!({"ids":[id]}));
-    }
+    let id = created
+        .get("id")
+        .and_then(Value::as_u64)
+        .ok_or("FigCraft did not return the new vector layer ID")?;
+
+    // Read the actual vector bounds, then position the layer by its bounds so it is centred
+    // correctly even when the icon path does not start at (0, 0) or is not square.
+    let bounds = call("node.get", &json!({"id":id,"fields":["width","height"]}))?;
+    let width = bounds.get("width").and_then(Value::as_f64).unwrap_or(size);
+    let height = bounds.get("height").and_then(Value::as_f64).unwrap_or(size);
+    call(
+        "node.set",
+        &json!({
+            "ids":[id],
+            "x":cx - width / 2.0,
+            "y":cy - height / 2.0
+        }),
+    )?;
 
     notify(&format!("Inserted {} as an editable vector", icon.name));
-    Ok(json!({"inserted":icon.name.clone(),"size":size}))
+    Ok(json!({"inserted":icon.name,"size":size,"id":id}))
 }
 
 fn export_icon(icon: &Icon, values: &Value) -> Result<Value> {
     let size = number(values, "size", 24.0, 8.0, 512.0);
     let stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
-    let stroke = values["stroke"].as_str().unwrap_or("#202020");
+    let stroke = stroke_color(values)?;
     let svg = format!(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{size}\" height=\"{size}\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"{stroke}\" stroke-width=\"{stroke_width}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"{}\"/></svg>",
         icon.path
     );
-    save_file(&format!("{}.svg", icon.name), "image/svg+xml", svg.as_bytes())?;
-    notify(&format!("Exporting {}.svg", icon.name));
-    Ok(json!({"exported":icon.name.clone()}))
+
+    save_file(
+        &format!("{}.svg", icon.name),
+        "image/svg+xml",
+        svg.as_bytes(),
+    )?;
+    notify(&format!("Exported {}.svg", icon.name));
+    Ok(json!({"exported":icon.name}))
 }
 
 fn run(input: Input) -> Result<Value> {
@@ -162,15 +251,22 @@ fn run(input: Input) -> Result<Value> {
     }
 
     if catalogue().is_empty() {
-        return Err("The Lucide catalogue is empty. Run scripts/build-wasm.sh to download and bundle lucide-static before compiling.".into());
+        return Err(
+            "The Lucide catalogue is empty. Run build-wasm.sh to download and bundle the icons."
+                .into(),
+        );
     }
 
+    let first_icon = catalogue()
+        .first()
+        .map(|icon| icon.name.clone())
+        .unwrap_or_default();
     let defaults = json!({
         "query":"",
-        "icon":catalogue().first().map(|i| i.name.clone()).unwrap_or_default(),
+        "icon":first_icon,
         "size":24,
         "strokeWidth":2,
-        "stroke":"#202020"
+        "stroke":DEFAULT_STROKE
     });
     panel(&defaults)
 }
@@ -181,18 +277,42 @@ entry!(run);
 mod tests {
     use super::*;
 
-    #[test]
-    fn results_are_bounded_and_case_insensitive() {
-        assert!(results("ACTIVITY").iter().any(|name| name == "activity"));
-        assert!(results("not-a-real-icon").is_empty());
-        assert!(results("").len() <= MAX_RESULTS);
+    fn test_icons() -> Vec<Icon> {
+        vec![
+            Icon { name: "activity".into(), path: "M0 0L1 1".into() },
+            Icon { name: "arrow-left".into(), path: "M0 0L1 1".into() },
+            Icon { name: "calendar-days".into(), path: "M0 0L1 1".into() },
+        ]
     }
 
     #[test]
-    fn every_catalogue_path_is_nonempty() {
-        for icon in catalogue() {
-            assert!(!icon.name.is_empty());
-            assert!(!icon.path.trim().is_empty());
-        }
+    fn search_is_case_insensitive_and_supports_spaces() {
+        let icons = test_icons();
+        assert_eq!(matching_names(&icons, "ACTIVITY"), vec!["activity"]);
+        assert_eq!(matching_names(&icons, "arrow left"), vec!["arrow-left"]);
+        assert_eq!(matching_names(&icons, "not-a-real-icon"), Vec::<String>::new());
+    }
+
+    #[test]
+    fn search_is_sorted_and_not_truncated_in_the_matcher() {
+        let icons = test_icons();
+        assert_eq!(
+            matching_names(&icons, ""),
+            vec!["activity", "arrow-left", "calendar-days"]
+        );
+    }
+
+    #[test]
+    fn stroke_color_is_normalized_and_validated() {
+        assert_eq!(stroke_color(&json!({"stroke":"#abc"})).unwrap(), "#AABBCC");
+        assert_eq!(stroke_color(&json!({"stroke":"12abEF"})).unwrap(), "#12ABEF");
+        assert!(stroke_color(&json!({"stroke":"red"})).is_err());
+        assert!(stroke_color(&json!({"stroke":"#12345"})).is_err());
+    }
+
+    #[test]
+    fn numeric_values_are_clamped() {
+        assert_eq!(number(&json!({"size":900}), "size", 24.0, 8.0, 512.0), 512.0);
+        assert_eq!(number(&json!({}), "size", 24.0, 8.0, 512.0), 24.0);
     }
 }
