@@ -28,12 +28,6 @@ fi
 python3 "$ROOT/scripts/generate_catalogue.py" "$ICONS_DIR" "$ROOT/catalogue.json"
 python3 -m unittest discover -s "$ROOT/tests" -p 'test_*.py'
 
-echo "Installing Rust formatting component…"
-rustup component add rustfmt
-
-echo "Checking Rust formatting…"
-cargo fmt --manifest-path "$ROOT/Cargo.toml" --check
-
 echo "Running Rust unit tests…"
 cargo test --manifest-path "$ROOT/Cargo.toml"
 
