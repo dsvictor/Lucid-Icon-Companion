@@ -9,7 +9,7 @@ const PAGE_SIZE: usize = 64;
 #[derive(Clone, Debug)]
 struct Icon {
     name: String,
-    path: String,
+    paths: Vec<String>,
 }
 
 fn catalogue() -> Vec<Icon> {
@@ -21,7 +21,7 @@ fn catalogue() -> Vec<Icon> {
         .filter_map(|item| {
             Some(Icon {
                 name: item.get("name")?.as_str()?.to_string(),
-                path: item.get("path")?.as_str()?.to_string(),
+                paths: item.get("paths")?.as_array()?.iter().filter_map(Value::as_str).map(str::to_string).collect(),
             })
         })
         .collect()
@@ -115,14 +115,13 @@ fn panel(values: &Value) -> Result<Value> {
         }));
     }
 
-    let selected_size = number(values, "size", 24.0, 8.0, 512.0);
     let selected_stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
     let selection_summary = if selected.is_empty() {
         "No icon selected".to_string()
     } else {
         format!(
             "Selected: {} · {} × {} · Stroke {}",
-            selected, selected_size, selected_size, selected_stroke_width
+            selected, 24, 24, selected_stroke_width
         )
     };
     controls.extend([
@@ -133,14 +132,6 @@ fn panel(values: &Value) -> Result<Value> {
         json!({"type":"button","name":"insert","label":"Insert vector"}),
         json!({"type":"button","name":"refresh","label":"Refresh list"}),
         json!({"type":"button","name":"export","label":"Export SVG"}),
-        json!({
-            "type":"number",
-            "name":"size",
-            "label":"Icon size (px)",
-            "min":8,
-            "max":512,
-            "value":values.get("size").and_then(Value::as_f64).unwrap_or(24.0)
-        }),
         json!({
             "type":"number",
             "name":"strokeWidth",
@@ -202,21 +193,16 @@ fn selected_icon(values: &Value) -> Result<Icon> {
 }
 
 fn create_vector(
-    icon: &Icon,
+    icon_name: &str,
+    path: &str,
+    index: usize,
     parent: u64,
-    size: f64,
     stroke_width: f64,
     stroke: &str,
-    size_by_height: bool,
 ) -> Result<Value> {
-    let size_property = if size_by_height {
-        json!({"height":size})
-    } else {
-        json!({"width":size})
-    };
-    let mut params = json!({
-        "path": icon.path,
-        "name": format!("{} vector", icon.name),
+    call("vector.create", &json!({
+        "path": path,
+        "name": format!("{} vector {}", icon_name, index + 1),
         "parent": parent,
         "x": 0,
         "y": 0,
@@ -228,97 +214,52 @@ fn create_vector(
             "strokeCap": "round",
             "strokeJoin": "round"
         }
-    });
-    if let (Some(target), Some(source)) = (params.as_object_mut(), size_property.as_object()) {
-        for (key, value) in source {
-            target.insert(key.clone(), value.clone());
-        }
-    }
-    call("vector.create", &params)
+    }))
 }
 
 fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
-    let size = number(values, "size", 24.0, 8.0, 512.0);
     let stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
     let stroke = stroke_color(values)?;
-
     let view = call("view.get", &json!({}))?;
     let cx = view.get("cx").and_then(Value::as_f64).unwrap_or(0.0);
     let cy = view.get("cy").and_then(Value::as_f64).unwrap_or(0.0);
 
-    // Make a square frame at the centre of the current view. The vector is created as
-    // a child of this frame, not as a page-level layer.
-    let frame = call(
-        "node.create",
-        &json!({
-            "type":"frame",
-            "name":icon.name,
-            "x":cx - size / 2.0,
-            "y":cy - size / 2.0,
-            "width":size,
-            "height":size
-        }),
-    )?;
-    let frame_id = frame
-        .get("id")
-        .and_then(Value::as_u64)
+    // The Lucide source viewBox is 0 0 24 24. Keep the frame and all
+    // child geometry in those exact coordinates; do not scale or recenter paths.
+    let frame = call("node.create", &json!({
+        "type":"frame",
+        "name":icon.name,
+        "x":cx - 12.0,
+        "y":cy - 12.0,
+        "width":24,
+        "height":24,
+        "props":{"clipContent":true}
+    }))?;
+    let frame_id = frame.get("id").and_then(Value::as_u64)
         .ok_or("FigCraft did not return the new icon frame ID")?;
 
-    // Supplying only width preserves the icon's aspect ratio. A few Lucide symbols are
-    // vertical-only paths, so retry those with height instead.
-    let created = match create_vector(icon, frame_id, size, stroke_width, &stroke, false) {
-        Ok(value) => value,
-        Err(error) if error.contains("no horizontal extent") => {
-            create_vector(icon, frame_id, size, stroke_width, &stroke, true)?
-        }
-        Err(error) => return Err(error),
-    };
+    let mut vector_ids = Vec::new();
+    for (index, path) in icon.paths.iter().enumerate() {
+        let created = create_vector(&icon.name, path, index, frame_id, stroke_width, &stroke)?;
+        let vector_id = created.get("id").and_then(Value::as_u64)
+            .ok_or("FigCraft did not return a vector layer ID")?;
+        vector_ids.push(vector_id);
+    }
 
-    let vector_id = created
-        .get("id")
-        .and_then(Value::as_u64)
-        .ok_or("FigCraft did not return the new vector layer ID")?;
-
-    // Centre the actual path bounds inside the square frame. This also handles icons
-    // whose path is not square or whose geometry does not start at (0, 0).
-    let bounds = call(
-        "node.get",
-        &json!({"id":vector_id,"fields":["width","height"]}),
-    )?;
-    let width = bounds.get("width").and_then(Value::as_f64).unwrap_or(size);
-    let height = bounds.get("height").and_then(Value::as_f64).unwrap_or(size);
-    call(
-        "node.set",
-        &json!({
-            "ids":[vector_id],
-            "x":(size - width) / 2.0,
-            "y":(size - height) / 2.0
-        }),
-    )?;
-
-    notify(&format!("Inserted {} inside a {} × {} frame", icon.name, size, size));
-    Ok(json!({
-        "inserted":icon.name,
-        "frameId":frame_id,
-        "vectorId":vector_id,
-        "size":size
-    }))
+    notify(&format!("Inserted {} using its original 24 × 24 SVG geometry", icon.name));
+    Ok(json!({"inserted":icon.name,"frameId":frame_id,"vectorIds":vector_ids,"size":24}))
 }
 
 fn export_icon(icon: &Icon, values: &Value) -> Result<Value> {
-    let size = number(values, "size", 24.0, 8.0, 512.0);
     let stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
     let stroke = stroke_color(values)?;
+    let elements = icon.paths.iter()
+        .map(|path| format!("<path d=\\"{}\\"/>", path))
+        .collect::<String>();
     let svg = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{size}\" height=\"{size}\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"{stroke}\" stroke-width=\"{stroke_width}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"{}\"/></svg>",
-        icon.path
+        "<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"24\\" height=\\"24\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"{stroke}\\" stroke-width=\\"{stroke_width}\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\">{elements}</svg>"
     );
-
-    save_file(
-        &format!("{}.svg", icon.name),
-        "image/svg+xml",
-        svg.as_bytes(),
-    )?;
+    save_file(&format!("{}.svg", icon.name), "image/svg+xml", svg.as_bytes())?;
     notify(&format!("Exported {}.svg", icon.name));
     Ok(json!({"exported":icon.name}))
 }
@@ -334,7 +275,7 @@ fn run(input: Input) -> Result<Value> {
                 }
                 panel(&searched)
             }
-            "icon" | "page" | "size" | "strokeWidth" | "stroke" => panel(&values),
+            "icon" | "page" | "strokeWidth" | "stroke" => panel(&values),
             "refresh" => {
                 let mut refreshed = values.clone();
                 if let Some(fields) = refreshed.as_object_mut() {
@@ -370,7 +311,6 @@ fn run(input: Input) -> Result<Value> {
         "query":"",
         "icon":first_icon,
         "page":"1",
-        "size":24,
         "strokeWidth":2,
         "stroke":DEFAULT_STROKE
     });
@@ -385,9 +325,9 @@ mod tests {
 
     fn test_icons() -> Vec<Icon> {
         vec![
-            Icon { name: "activity".into(), path: "M0 0L1 1".into() },
-            Icon { name: "arrow-left".into(), path: "M0 0L1 1".into() },
-            Icon { name: "calendar-days".into(), path: "M0 0L1 1".into() },
+            Icon { name: "activity".into(), paths: vec!["M0 0L1 1".into()] },
+            Icon { name: "arrow-left".into(), paths: vec!["M0 0L1 1".into()] },
+            Icon { name: "calendar-days".into(), paths: vec!["M0 0L1 1".into()] },
         ]
     }
 
@@ -414,7 +354,7 @@ mod tests {
         let icons: Vec<Icon> = (0..2_400)
             .map(|index| Icon {
                 name: format!("icon-{index:04}"),
-                path: "M0 0L1 1".into(),
+                paths: vec!["M0 0L1 1".into()],
             })
             .collect();
         let matches = matching_names(&icons, "");
