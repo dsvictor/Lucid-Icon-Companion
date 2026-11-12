@@ -16,46 +16,36 @@ class SvgPathTests(unittest.TestCase):
         return ET.fromstring(svg)
 
     def test_line_and_polyline(self):
-        line = self.element('<line x1="1" y1="2" x2="3" y2="4"/>')
-        self.assertEqual(path_for(line), "M1 2L3 4")
-
-        polyline = self.element('<polyline points="1,2 3,4 5,6"/>')
-        self.assertEqual(path_for(polyline), "M1 2 3 4 5 6")
+        self.assertEqual(path_for(self.element('<line x1="1" y1="2" x2="3" y2="4"/>')), "M1 2L3 4")
+        self.assertEqual(path_for(self.element('<polyline points="1,2 3,4 5,6"/>')), "M1 2 3 4 5 6")
 
     def test_polygon_is_closed(self):
-        polygon = self.element('<polygon points="0,0 10,0 5,8"/>')
-        self.assertTrue(path_for(polygon).endswith("Z"))
+        self.assertTrue(path_for(self.element('<polygon points="0,0 10,0 5,8"/>')).endswith("Z"))
 
     def test_rect_supports_rounded_corners(self):
-        rect = self.element('<rect x="1" y="2" width="20" height="12" rx="2"/>')
-        path = path_for(rect)
+        path = path_for(self.element('<rect x="1" y="2" width="20" height="12" rx="2"/>'))
         self.assertTrue(path.startswith("M3 2"))
         self.assertIn("q", path)
         self.assertTrue(path.endswith("Z"))
 
     def test_circle_and_ellipse_become_curves(self):
-        circle = self.element('<circle cx="12" cy="12" r="5"/>')
-        ellipse = self.element('<ellipse cx="12" cy="12" rx="6" ry="3"/>')
-        self.assertIn("C", path_for(circle))
-        self.assertIn("C", path_for(ellipse))
+        self.assertIn("C", path_for(self.element('<circle cx="12" cy="12" r="5"/>')))
+        self.assertIn("C", path_for(self.element('<ellipse cx="12" cy="12" rx="6" ry="3"/>')))
 
-    def test_build_catalogue_reads_svg_files(self):
+    def test_catalogue_preserves_individual_elements_and_viewbox(self):
         with tempfile.TemporaryDirectory() as temp:
             icons_dir = pathlib.Path(temp) / "icons"
             icons_dir.mkdir()
-            (icons_dir / "activity.svg").write_text(
-                '<svg viewBox="0 0 24 24"><path d="M2 12h20"/></svg>',
+            (icons_dir / "multi.svg").write_text(
+                '<svg viewBox="0 0 24 24"><path d="M2 12h20"/><circle cx="12" cy="12" r="3"/></svg>',
                 encoding="utf-8",
             )
-            (icons_dir / "rounded.svg").write_text(
-                '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"/></svg>',
-                encoding="utf-8",
-            )
-
             icons = build_catalogue(icons_dir)
-
-            self.assertEqual([icon["name"] for icon in icons], ["activity", "rounded"])
-            self.assertTrue(all(icon["path"] for icon in icons))
+            self.assertEqual(icons[0]["name"], "multi")
+            self.assertEqual(icons[0]["viewBox"], "0 0 24 24")
+            self.assertEqual(len(icons[0]["paths"]), 2)
+            self.assertEqual(icons[0]["paths"][0], "M2 12h20")
+            self.assertIn("C", icons[0]["paths"][1])
 
 
 if __name__ == "__main__":
