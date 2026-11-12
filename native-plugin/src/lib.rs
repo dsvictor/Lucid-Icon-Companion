@@ -217,8 +217,8 @@ fn create_vector(
         "path": path,
         "name": format!("{} vector {}", icon_name, index + 1),
         "parent": parent,
-        "x": 0,
-        "y": 0,
+        // Keep the SVG path's own source-coordinate bounds; forcing each path to (0, 0)
+        // translates every independent element and breaks multi-part Lucide icons.
         "select": false,
         "props": {
             "fill": "none",
