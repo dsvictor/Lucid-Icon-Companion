@@ -68,7 +68,7 @@ fn panel(values: &Value) -> Result<Value> {
         json!({
             "type":"note",
             "label":format!(
-                "{} match(es); showing {} at most.",
+                "{} matches · {} available in the icon menu.",
                 total_matches,
                 options.len()
             )
@@ -77,7 +77,7 @@ fn panel(values: &Value) -> Result<Value> {
 
     if !options.is_empty() {
         controls.push(json!({
-            "type":"list",
+            "type":"select",
             "name":"icon",
             "label":"Icon",
             "options":options,
