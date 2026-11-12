@@ -1,0 +1,20 @@
+{
+  "id": "com.jayanta.lucide-companion",
+  "name": "Lucide Companion",
+  "version": "0.1.0",
+  "description": "Search the Lucide icon library, insert editable vectors and export SVG files.",
+  "author": "Jayanta",
+  "main": "lucide_companion.wasm",
+  "api": 4,
+  "permissions": {
+    "access": "write",
+    "saveFile": true,
+    "commands": ["view.get", "vector.create", "select.set"]
+  },
+  "commands": [
+    {
+      "id": "browse",
+      "label": "Lucide icon browser…"
+    }
+  ]
+}
