@@ -9,6 +9,8 @@ const PAGE_SIZE: usize = 64;
 #[derive(Clone, Debug)]
 struct Icon {
     name: String,
+    svg: String,
+    preview: String,
     paths: Vec<String>,
 }
 
@@ -21,6 +23,8 @@ fn catalogue() -> Vec<Icon> {
         .filter_map(|item| {
             Some(Icon {
                 name: item.get("name")?.as_str()?.to_string(),
+                svg: item.get("svg")?.as_str()?.to_string(),
+                preview: item.get("preview")?.as_str()?.to_string(),
                 paths: item.get("paths")?.as_array()?.iter().filter_map(Value::as_str).map(str::to_string).collect(),
             })
         })
@@ -129,6 +133,11 @@ fn panel(values: &Value) -> Result<Value> {
             "type":"note",
             "label":selection_summary
         }),
+        selected_icon_for_preview(&selected).map(|icon| json!({
+            "type":"image",
+            "label":format!("{} icon preview", icon.name),
+            "data":icon.preview
+        })).unwrap_or_else(|| json!({"type":"note","label":"Preview unavailable"})),
         json!({"type":"button","name":"insert","label":"Insert vector"}),
         json!({"type":"button","name":"refresh","label":"Refresh list"}),
         json!({"type":"button","name":"export","label":"Export SVG"}),
@@ -150,6 +159,10 @@ fn panel(values: &Value) -> Result<Value> {
 
     show_ui(&json!({"title":"Lucide Companion","controls":controls}))?;
     Ok(Value::Null)
+}
+
+fn selected_icon_for_preview(name: &str) -> Option<Icon> {
+    if name.is_empty() { None } else { find_icon(name) }
 }
 
 fn number(values: &Value, key: &str, fallback: f64, min: f64, max: f64) -> f64 {
@@ -249,18 +262,11 @@ fn insert_icon(icon: &Icon, values: &Value) -> Result<Value> {
     Ok(json!({"inserted":icon.name,"frameId":frame_id,"vectorIds":vector_ids,"size":24}))
 }
 
-fn export_icon(icon: &Icon, values: &Value) -> Result<Value> {
-    let stroke_width = number(values, "strokeWidth", 2.0, 0.5, 8.0);
-    let stroke = stroke_color(values)?;
-    let elements = icon.paths.iter()
-        .map(|path| format!("<path d=\\"{}\\"/>", path))
-        .collect::<String>();
-    let svg = format!(
-        "<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"24\\" height=\\"24\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"{stroke}\\" stroke-width=\\"{stroke_width}\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\">{elements}</svg>"
-    );
-    save_file(&format!("{}.svg", icon.name), "image/svg+xml", svg.as_bytes())?;
-    notify(&format!("Exported {}.svg", icon.name));
-    Ok(json!({"exported":icon.name}))
+fn export_icon(icon: &Icon, _values: &Value) -> Result<Value> {
+    // Export the untouched upstream SVG source, rather than rebuilding a lookalike.
+    save_file(&format!("{}.svg", icon.name), "image/svg+xml", icon.svg.as_bytes())?;
+    notify(&format!("Exported original {}.svg", icon.name));
+    Ok(json!({"exported":icon.name,"source":"original-lucide-svg"}))
 }
 
 fn run(input: Input) -> Result<Value> {
@@ -324,9 +330,9 @@ mod tests {
 
     fn test_icons() -> Vec<Icon> {
         vec![
-            Icon { name: "activity".into(), paths: vec!["M0 0L1 1".into()] },
-            Icon { name: "arrow-left".into(), paths: vec!["M0 0L1 1".into()] },
-            Icon { name: "calendar-days".into(), paths: vec!["M0 0L1 1".into()] },
+            Icon { name: "activity".into(), svg: "<svg/>".into(), preview: String::new(), paths: vec!["M0 0L1 1".into()] },
+            Icon { name: "arrow-left".into(), svg: "<svg/>".into(), preview: String::new(), paths: vec!["M0 0L1 1".into()] },
+            Icon { name: "calendar-days".into(), svg: "<svg/>".into(), preview: String::new(), paths: vec!["M0 0L1 1".into()] },
         ]
     }
 
@@ -353,6 +359,8 @@ mod tests {
         let icons: Vec<Icon> = (0..2_400)
             .map(|index| Icon {
                 name: format!("icon-{index:04}"),
+                svg: "<svg/>".into(),
+                preview: String::new(),
                 paths: vec!["M0 0L1 1".into()],
             })
             .collect();
