@@ -1,0 +1,38 @@
+name: Build native FigCraft plugin
+
+on:
+  push:
+    branches:
+      - native-plugin/api6-prototype
+    paths:
+      - "native-plugin/**"
+      - ".github/workflows/native-plugin.yml"
+  workflow_dispatch:
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build plugin and bundle Lucide catalogue
+        run: bash native-plugin/build-wasm.sh
+
+      - name: Upload plugin bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lucide-Companion-FigCraft-WASM
+          path: native-plugin/dist/
+          if-no-files-found: error
+          retention-days: 30
