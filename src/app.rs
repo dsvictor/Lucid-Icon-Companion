@@ -397,6 +397,8 @@ impl eframe::App for CompanionApp {
             match self.tab {
                 MainTab::Icons => {
                     ui.add_space(3.0);
+                    // Compute category groups outside the toolbar closure so the popup can use them.
+                    let groups = self.available_groups();
                     // One aligned search row; category control is a text-only custom popup.
                     ui.horizontal(|ui| {
                         let category_width = 146.0_f32;
@@ -447,7 +449,6 @@ impl eframe::App for CompanionApp {
                             },
                         );
                         ui.add_space(gap);
-                        let groups = self.available_groups();
                         let selected_filter = match self.view {
                             LibraryView::Favorites => "Favorites",
                             LibraryView::Recent => "Recent",
