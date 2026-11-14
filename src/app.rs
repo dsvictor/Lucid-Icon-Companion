@@ -359,8 +359,7 @@ impl eframe::App for CompanionApp {
                             egui::RichText::new("Open FigCraft").size(10.5)
                                 .color(egui::Color32::from_gray(205))
                         ).fill(egui::Color32::from_rgb(66, 66, 66))
-                            .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88)))
-                            .rounding(egui::Rounding::same(7)));
+                            .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88))));
                         if open.on_hover_text("Open FigCraft with control enabled").clicked() {
                             self.launch_figcraft();
                         }
