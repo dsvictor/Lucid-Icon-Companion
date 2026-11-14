@@ -326,8 +326,9 @@ impl eframe::App for CompanionApp {
                 // Push the title row down to align its text centre with the native
                 // traffic-light controls. The extra padding is intentional.
                 ui.add_space(37.0);
+                let title_row_width = ui.available_width();
                 ui.allocate_ui_with_layout(
-                    egui::vec2(ui.available_width(), 26.0),
+                    egui::vec2(title_row_width, 26.0),
                     egui::Layout::left_to_right(egui::Align::Center),
                     |ui| {
                         ui.add_space(74.0);
