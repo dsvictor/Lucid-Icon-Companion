@@ -320,7 +320,10 @@ impl eframe::App for CompanionApp {
             // Title shares the traffic-light row, as in the compact reference.
             #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
+                // The native traffic lights occupy the first ~70 px. Align the title
+                // beside them and lower it slightly onto the same visual centreline.
                 ui.add_space(74.0);
+                ui.add_space(7.0);
                 ui.label(egui::RichText::new("Lucid Icon")
                     .font(egui::FontId::proportional(16.0))
                     .strong()
@@ -353,7 +356,14 @@ impl eframe::App for CompanionApp {
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
-                        .size(11.0).underline().color(egui::Color32::from_gray(155)));
+                        .size(11.0).color(egui::Color32::from_gray(155)));
+                    ui.add_space(4.0);
+                    let refresh = ui.add_enabled(!self.loading, egui::Button::new(
+                        egui::RichText::new("⟳").size(16.0).color(egui::Color32::from_gray(175))
+                    ).frame(false));
+                    if refresh.on_hover_text("Update Lucide catalogue").clicked() {
+                        self.update_catalogue(&ctx);
+                    }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let open = ui.add(egui::Button::new(
                             egui::RichText::new("Open FigCraft").size(10.5)
@@ -362,13 +372,6 @@ impl eframe::App for CompanionApp {
                             .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88))));
                         if open.on_hover_text("Open FigCraft with control enabled").clicked() {
                             self.launch_figcraft();
-                        }
-                        ui.add_space(5.0);
-                        let refresh = ui.add_enabled(!self.loading, egui::Button::new(
-                            egui::RichText::new("⟳").size(16.0).color(egui::Color32::from_gray(175))
-                        ).frame(false));
-                        if refresh.on_hover_text("Update Lucide catalogue").clicked() {
-                            self.update_catalogue(&ctx);
                         }
                     });
                 });
@@ -391,13 +394,13 @@ impl eframe::App for CompanionApp {
                             egui::vec2(search_width, 30.0),
                             egui::Layout::left_to_right(egui::Align::Center),
                             |ui| {
-                                ui.spacing_mut().item_spacing.x = 7.0;
+                                ui.spacing_mut().item_spacing.x = 4.0;
                                 // Draw the magnifier with vector primitives so it renders on every system font.
                                 let (search_icon_rect, _) = ui.allocate_exact_size(
                                     egui::vec2(22.0, 30.0), egui::Sense::hover());
                                 let search_center = egui::pos2(
                                     search_icon_rect.center().x - 2.0,
-                                    search_icon_rect.center().y - 2.0,
+                                    search_icon_rect.center().y - 1.0,
                                 );
                                 let search_stroke = egui::Stroke::new(1.8, egui::Color32::WHITE);
                                 ui.painter().circle_stroke(search_center, 6.0, search_stroke);
@@ -437,22 +440,32 @@ impl eframe::App for CompanionApp {
                             LibraryView::Recent => "Recent",
                             LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
                         };
-                        egui::ComboBox::from_id_salt("tag_group_filter")
-                            .selected_text(selected_filter)
-                            .width(category_width)
-                            .height(560.0)
-                            .show_ui(ui, |ui| {
-                                ui.set_min_width(232.0);
-                                ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
-                                ui.selectable_value(&mut self.view, LibraryView::Favorites, "Favorites");
-                                ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
-                                ui.separator();
-                                ui.selectable_value(&mut self.group, None, "All categories");
-                                ui.separator();
-                                for group in &groups {
-                                    ui.selectable_value(&mut self.group, Some(group.clone()), group);
-                                }
-                            });
+                        ui.scope(|ui| {
+                            let mut style = (*ui.style()).clone();
+                            style.visuals.widgets.inactive.bg_fill = egui::Color32::TRANSPARENT;
+                            style.visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
+                            style.visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(55);
+                            style.visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
+                            style.visuals.widgets.active.bg_fill = egui::Color32::from_gray(62);
+                            style.visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
+                            ui.set_style(style);
+                            egui::ComboBox::from_id_salt("tag_group_filter")
+                                .selected_text(selected_filter)
+                                .width(category_width)
+                                .height(560.0)
+                                .show_ui(ui, |ui| {
+                                    ui.set_min_width(232.0);
+                                    ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
+                                    ui.selectable_value(&mut self.view, LibraryView::Favorites, "Favorites");
+                                    ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
+                                    ui.separator();
+                                    ui.selectable_value(&mut self.group, None, "All categories");
+                                    ui.separator();
+                                    for group in &groups {
+                                        ui.selectable_value(&mut self.group, Some(group.clone()), group);
+                                    }
+                                });
+                        });
                     });
                     ui.add_space(0.0);
                     let names = self.filtered_icon_names();
