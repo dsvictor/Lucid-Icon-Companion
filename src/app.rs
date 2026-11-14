@@ -325,7 +325,7 @@ impl eframe::App for CompanionApp {
             {
                 // Push the title row down to align its text centre with the native
                 // traffic-light controls. The extra padding is intentional.
-                ui.add_space(31.0);
+                ui.add_space(37.0);
                 ui.allocate_ui_with_layout(
                     egui::vec2(ui.available_width(), 26.0),
                     egui::Layout::left_to_right(egui::Align::Center),
@@ -466,7 +466,6 @@ impl eframe::App for CompanionApp {
                         if category_button.clicked() {
                             self.category_open = !self.category_open;
                         }
-                        });
                     });
                     if self.category_open {
                         let popup_pos = self.category_popup_pos;
