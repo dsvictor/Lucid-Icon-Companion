@@ -456,7 +456,6 @@ impl eframe::App for CompanionApp {
                             style.visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
                             ui.set_style(style);
                             egui::ComboBox::from_id_salt("tag_group_filter")
-                                .button_frame(false)
                                 .selected_text(selected_filter)
                                 .width(category_width)
                                 .height(560.0)
