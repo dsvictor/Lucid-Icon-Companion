@@ -434,6 +434,7 @@ impl eframe::App for CompanionApp {
                                     [text_width, 30.0],
                                     egui::TextEdit::singleline(&mut self.query)
                                         .hint_text("Search")
+                                        .vertical_align(egui::Align::Center)
                                         .frame(egui::Frame::NONE),
                                 );
                                 let _clear_slot = ui.allocate_ui_with_layout(
