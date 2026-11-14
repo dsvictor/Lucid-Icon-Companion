@@ -319,16 +319,18 @@ impl eframe::App for CompanionApp {
             .show(root_ui, |ui| {
             // Title shares the traffic-light row, as in the compact reference.
             #[cfg(target_os = "macos")]
-            ui.horizontal(|ui| {
-                // The native traffic lights occupy the first ~70 px. Align the title
-                // beside them and lower it slightly onto the same visual centreline.
+            {
+                // The native traffic lights sit above the content origin. Add vertical
+                // offset so the title's centre aligns with the lights, not their top edge.
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
                 ui.add_space(74.0);
-                ui.add_space(7.0);
                 ui.label(egui::RichText::new("Lucid Icon")
                     .font(egui::FontId::proportional(16.0))
                     .strong()
                     .color(egui::Color32::from_gray(242)));
-            });
+                });
+            }
             ui.add_space(1.0);
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
@@ -394,10 +396,10 @@ impl eframe::App for CompanionApp {
                             egui::vec2(search_width, 30.0),
                             egui::Layout::left_to_right(egui::Align::Center),
                             |ui| {
-                                ui.spacing_mut().item_spacing.x = 4.0;
+                                ui.spacing_mut().item_spacing.x = 2.0;
                                 // Draw the magnifier with vector primitives so it renders on every system font.
                                 let (search_icon_rect, _) = ui.allocate_exact_size(
-                                    egui::vec2(22.0, 30.0), egui::Sense::hover());
+                                    egui::vec2(16.0, 30.0), egui::Sense::hover());
                                 let search_center = egui::pos2(
                                     search_icon_rect.center().x - 2.0,
                                     search_icon_rect.center().y - 1.0,
@@ -442,8 +444,11 @@ impl eframe::App for CompanionApp {
                         };
                         ui.scope(|ui| {
                             let mut style = (*ui.style()).clone();
+                            style.visuals.widgets.noninteractive.bg_fill = egui::Color32::TRANSPARENT;
+                            style.visuals.widgets.noninteractive.bg_stroke = egui::Stroke::NONE;
                             style.visuals.widgets.inactive.bg_fill = egui::Color32::TRANSPARENT;
                             style.visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
+                            style.visuals.button_frame = false;
                             style.visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(55);
                             style.visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
                             style.visuals.widgets.active.bg_fill = egui::Color32::from_gray(62);
