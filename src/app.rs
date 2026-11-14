@@ -22,6 +22,8 @@ pub struct CompanionApp {
     selected: Option<String>,
     view: LibraryView,
     group: Option<String>,
+    category_open: bool,
+    category_popup_pos: egui::Pos2,
     tab: MainTab,
     status: String,
     loading: bool,
@@ -80,7 +82,8 @@ impl CompanionApp {
         let (action_tx, action_rx) = mpsc::channel();
         Self {
             settings, query: String::new(), icons, catalogue_version, selected: None, view: LibraryView::All,
-            group: None, tab: MainTab::Icons, status, loading: false, importing: false,
+            group: None, category_open: false, category_popup_pos: egui::Pos2::ZERO,
+            tab: MainTab::Icons, status, loading: false, importing: false,
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
             grid_previews: std::collections::HashMap::new(),
             context_loading: false, host_context: None,
@@ -322,17 +325,21 @@ impl eframe::App for CompanionApp {
             {
                 // Push the title row down to align its text centre with the native
                 // traffic-light controls. The extra padding is intentional.
-                ui.add_space(25.0);
-                ui.horizontal(|ui| {
-                ui.add_space(74.0);
-                ui.label(egui::RichText::new("Lucid Icon")
-                    .font(egui::FontId::proportional(16.0))
-                    .strong()
-                    .color(egui::Color32::from_gray(242)));
-                });
+                ui.add_space(31.0);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(ui.available_width(), 26.0),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        ui.add_space(74.0);
+                        ui.label(egui::RichText::new("Lucid Icon")
+                            .font(egui::FontId::proportional(16.0))
+                            .strong()
+                            .color(egui::Color32::from_gray(242)));
+                    },
+                );
             }
             // Keep a clear visual gap between the title row and navigation tabs.
-            ui.add_space(17.0);
+            ui.add_space(5.0);
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
@@ -351,8 +358,8 @@ impl eframe::App for CompanionApp {
                     self.tab = MainTab::Info;
                 }
             });
-            // Separate navigation from the search toolbar as in the reference layout.
-            ui.add_space(12.0);
+            // Fixed navigation row height keeps the toolbar position predictable.
+            ui.add_space(7.0);
         });
 
         egui::Panel::bottom("catalogue_footer")
@@ -388,8 +395,8 @@ impl eframe::App for CompanionApp {
             .show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
-                    ui.add_space(5.0);
-                    // Minimal search toolbar based on the supplied Lucide mockup.
+                    ui.add_space(3.0);
+                    // One aligned search row; category control is a text-only custom popup.
                     ui.horizontal(|ui| {
                         let category_width = 146.0_f32;
                         let gap = 10.0_f32;
@@ -445,39 +452,63 @@ impl eframe::App for CompanionApp {
                             LibraryView::Recent => "Recent",
                             LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
                         };
-                        ui.scope(|ui| {
-                            let mut style = (*ui.style()).clone();
-                            style.visuals.widgets.noninteractive.bg_fill = egui::Color32::TRANSPARENT;
-                            style.visuals.widgets.noninteractive.bg_stroke = egui::Stroke::NONE;
-                            style.visuals.widgets.inactive.bg_fill = egui::Color32::TRANSPARENT;
-                            style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
-                            style.visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
-                            style.visuals.widgets.hovered.bg_fill = egui::Color32::TRANSPARENT;
-                            style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::TRANSPARENT;
-                            style.visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
-                            style.visuals.widgets.active.bg_fill = egui::Color32::TRANSPARENT;
-                            style.visuals.widgets.active.weak_bg_fill = egui::Color32::TRANSPARENT;
-                            style.visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
-                            style.visuals.button_frame = false;
-                            ui.set_style(style);
-                            egui::ComboBox::from_id_salt("tag_group_filter")
-                                .selected_text(selected_filter)
-                                .width(category_width)
-                                .height(560.0)
-                                .show_ui(ui, |ui| {
-                                    ui.set_min_width(232.0);
-                                    ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
-                                    ui.selectable_value(&mut self.view, LibraryView::Favorites, "Favorites");
-                                    ui.selectable_value(&mut self.view, LibraryView::Recent, "Recent");
-                                    ui.separator();
-                                    ui.selectable_value(&mut self.group, None, "All categories");
-                                    ui.separator();
-                                    for group in &groups {
-                                        ui.selectable_value(&mut self.group, Some(group.clone()), group);
-                                    }
-                                });
+                        let category_button = ui.add(
+                            egui::Button::new(
+                                egui::RichText::new(format!("{selected_filter}  ▾"))
+                                    .size(13.0)
+                                    .color(egui::Color32::from_gray(175))
+                            ).frame(false)
+                        );
+                        self.category_popup_pos = egui::pos2(
+                            category_button.rect.right() - 232.0,
+                            category_button.rect.bottom() + 4.0,
+                        );
+                        if category_button.clicked() {
+                            self.category_open = !self.category_open;
+                        }
                         });
                     });
+                    if self.category_open {
+                        let popup_pos = self.category_popup_pos;
+                        let mut close_popup = false;
+                        egui::Area::new(egui::Id::new("category_filter_popup"))
+                            .order(egui::Order::Foreground)
+                            .fixed_pos(popup_pos)
+                            .show(&ctx, |ui| {
+                                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                                    ui.set_min_width(232.0);
+                                    if ui.selectable_label(self.view == LibraryView::All && self.group.is_none(), "All categories").clicked() {
+                                        self.view = LibraryView::All;
+                                        self.group = None;
+                                        close_popup = true;
+                                    }
+                                    if ui.selectable_label(self.view == LibraryView::Favorites, "Favorites").clicked() {
+                                        self.view = LibraryView::Favorites;
+                                        close_popup = true;
+                                    }
+                                    if ui.selectable_label(self.view == LibraryView::Recent, "Recent").clicked() {
+                                        self.view = LibraryView::Recent;
+                                        close_popup = true;
+                                    }
+                                    ui.separator();
+                                    egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
+                                        for group in &groups {
+                                            if ui.selectable_label(
+                                                self.view == LibraryView::All && self.group.as_ref() == Some(group),
+                                                group,
+                                            ).clicked() {
+                                                self.view = LibraryView::All;
+                                                self.group = Some(group.clone());
+                                                close_popup = true;
+                                            }
+                                        }
+                                    });
+                                });
+                            });
+                        if close_popup {
+                            self.category_open = false;
+                        }
+                    }
                     ui.add_space(0.0);
                     let names = self.filtered_icon_names();
                     // Recalculate the number and width of cells from the live viewport width.
