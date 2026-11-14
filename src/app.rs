@@ -622,6 +622,14 @@ impl eframe::App for CompanionApp {
                     ui.add_space(12.0);
                     ui.heading("Lucide Companion");
                     ui.label("A native icon browser and SVG importer for FigCraft.");
+                    ui.add_space(8.0);
+                    ui.label(egui::RichText::new("BUILD INFORMATION").small().strong().weak());
+                    ui.label(format!("App version · {}", env!("CARGO_PKG_VERSION")));
+                    ui.label(format!("Build type · {}", option_env!("LUCIDE_BUILD_CHANNEL").unwrap_or("development")));
+                    ui.label(format!("Branch · {}", option_env!("LUCIDE_BUILD_BRANCH").unwrap_or("unknown")));
+                    ui.label(format!("Commit · {}", option_env!("LUCIDE_BUILD_COMMIT").unwrap_or("unknown")));
+                    ui.label(format!("Built · {}", option_env!("LUCIDE_BUILD_DATE").unwrap_or("unknown")));
+                    ui.add_space(6.0);
                     ui.add_space(10.0);
                     ui.label(egui::RichText::new(&self.status).small().weak());
                     ui.add_space(6.0);
