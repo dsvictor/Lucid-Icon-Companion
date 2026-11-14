@@ -393,7 +393,9 @@ impl eframe::App for CompanionApp {
             });
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
+            .frame(egui::Frame::new()
+                .fill(root_ui.visuals().panel_fill)
+                .stroke(egui::Stroke::NONE)
                 .inner_margin(egui::Margin::symmetric(16, 0)))
             .show(root_ui, |ui| {
             match self.tab {
@@ -433,6 +435,7 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 30.0],
                                     egui::TextEdit::singleline(&mut self.query)
+                                        .font(egui::FontId::proportional(14.0))
                                         .hint_text("Search")
                                         .vertical_align(egui::Align::Center)
                                         .frame(egui::Frame::NONE),
