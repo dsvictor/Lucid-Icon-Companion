@@ -41,11 +41,25 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 
 ## Download
 
-The latest Apple Silicon development build is published as a GitHub Actions artifact:
+<https://github.com/dsvictor/Lucid-Icon-Companion/releases/latest>
 
-[Open macOS build artifacts](https://github.com/dsvictor/Lucid-Icon-Companion/actions)
+Download **Lucide-Companion-macOS-arm64.dmg** from the latest release.
 
-Download **Lucide-Companion-macOS-arm64**, extract the artifact ZIP, open the DMG, and drag the app into Applications. This build is unsigned; macOS may ask you to approve opening it.
+### Install on macOS
+
+1. Download the DMG from the [latest GitHub release](https://github.com/dsvictor/Lucid-Icon-Companion/releases/latest).
+2. Open the DMG.
+3. Drag **Lucide Companion.app** into your Applications folder.
+4. Eject the mounted DMG, then launch the app from Applications.
+
+**Compatibility:** macOS 13 or later, Apple Silicon (ARM64).
+
+**Security note:** The current release is not code-signed or notarized. macOS may block the first launch; if so, use System Settings → Privacy & Security to approve the app after confirming that you trust the download.
+
+**SHA-256 (v0.2.0):**
+`fc486b60e54b1f03e656b8526d7b2dd1d3e8cccc12b54b94c80074b4e4f1f464`
+
+For development builds and CI checks, see [GitHub Actions](https://github.com/dsvictor/Lucid-Icon-Companion/actions).
 
 ## Build from source
 
