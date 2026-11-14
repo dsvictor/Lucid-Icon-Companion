@@ -369,13 +369,6 @@ impl eframe::App for CompanionApp {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
                         .size(11.0).color(egui::Color32::from_gray(155)));
-                    ui.add_space(4.0);
-                    let refresh = ui.add_enabled(!self.loading, egui::Button::new(
-                        egui::RichText::new("⟳").size(16.0).color(egui::Color32::from_gray(175))
-                    ).frame(false));
-                    if refresh.on_hover_text("Update Lucide catalogue").clicked() {
-                        self.update_catalogue(&ctx);
-                    }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let open = ui.add(egui::Button::new(
                             egui::RichText::new("Open FigCraft").size(10.5)
@@ -384,6 +377,13 @@ impl eframe::App for CompanionApp {
                             .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88))));
                         if open.on_hover_text("Open FigCraft with control enabled").clicked() {
                             self.launch_figcraft();
+                        }
+                        ui.add_space(8.0);
+                        let refresh = ui.add_enabled(!self.loading, egui::Button::new(
+                            egui::RichText::new("⟳").size(17.0).color(egui::Color32::from_gray(175))
+                        ).frame(false));
+                        if refresh.on_hover_text("Update Lucide catalogue").clicked() {
+                            self.update_catalogue(&ctx);
                         }
                     });
                 });
