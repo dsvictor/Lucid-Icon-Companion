@@ -10,6 +10,13 @@ BIN="target/$TARGET/release/lucide-icon-companion"
 DMG_ROOT="dist/dmg-root"
 DMG="dist/Lucide-Companion-macOS-arm64.dmg"
 
+BUILD_COMMIT="$(git rev-parse --short HEAD)"
+BUILD_BRANCH="$(git branch --show-current)"
+BUILD_DATE="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+LUCIDE_BUILD_CHANNEL="preview" \
+LUCIDE_BUILD_BRANCH="$BUILD_BRANCH" \
+LUCIDE_BUILD_COMMIT="$BUILD_COMMIT" \
+LUCIDE_BUILD_DATE="$BUILD_DATE" \
 cargo build --release --target "$TARGET"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 install -m 755 "$BIN" "$APP/Contents/MacOS/LucideCompanion"
