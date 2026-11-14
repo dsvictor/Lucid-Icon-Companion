@@ -34,7 +34,6 @@ pub struct CompanionApp {
     grid_previews: std::collections::HashMap<String, egui::TextureHandle>,
     context_loading: bool,
     host_context: Option<(String, egui::TextureHandle)>,
-    chrome_icons: std::collections::HashMap<String, egui::TextureHandle>,
 }
 
 fn safe_hex_color(value: &str) -> Option<&str> {
@@ -85,7 +84,6 @@ impl CompanionApp {
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
             grid_previews: std::collections::HashMap::new(),
             context_loading: false, host_context: None,
-            chrome_icons: std::collections::HashMap::new(),
         }
     }
 
@@ -315,103 +313,50 @@ impl eframe::App for CompanionApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = root_ui.ctx().clone();
-        // Rasterize the supplied SVG controls once and reuse their textures throughout the UI.
-        for (key, source) in [
-            ("refresh", include_str!("../assets/refresh.svg")),
-            ("open", include_str!("../assets/open_in_figcraft.svg")),
-            ("dropdown", include_str!("../assets/dropdown.svg")),
-            ("cancel", include_str!("../assets/cancel.svg")),
-            ("copy", include_str!("../assets/copy.svg")),
-        ] {
-            if !self.chrome_icons.contains_key(key) {
-                let svg = source.replace("#FF0000", "#bdbdbd");
-                if let Some(texture) = Self::render_preview(&ctx, &svg, &format!("chrome-{key}")) {
-                    self.chrome_icons.insert(key.to_owned(), texture);
-                }
-            }
-        }
         // One compact navigation row: keep the window chrome, remove the redundant in-app title bar.
         egui::Panel::top("navigation")
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
             #[cfg(target_os = "macos")]
-            ui.add_space(4.0);
-            #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
-                // Move the title, tabs and launch control together to the reference's vertical guide.
-                ui.add_space(68.0);
-                ui.add_space(8.0);
+                // Place the title on the same horizontal line as the traffic lights.
+                ui.add_space(74.0);
                 ui.label(egui::RichText::new("Lucide Icon")
-                    .font(egui::FontId::proportional(15.0))
+                    .font(egui::FontId::proportional(16.0))
                     .strong()
                     .color(egui::Color32::from_gray(242)));
             });
             ui.add_space(2.0);
             ui.horizontal(|ui| {
-                // Match the reference: compact tabs begin on the same inset as the search row.
-                ui.add_space(20.0);
-                ui.spacing_mut().item_spacing.x = 14.0;
-                for (tab, label) in [
-                    (MainTab::Icons, "Icon"),
-                    (MainTab::Settings, "Settings"),
-                    (MainTab::Info, "Info"),
-                ] {
-                    let selected = self.tab == tab;
-                    let text = if selected {
-                        egui::RichText::new(label).size(12.5).strong().color(egui::Color32::from_gray(245))
-                    } else {
-                        egui::RichText::new(label).size(12.5).strong().color(egui::Color32::from_gray(165))
-                    };
-                    if ui.add(egui::Label::new(text).sense(egui::Sense::click())).clicked() {
-                        self.tab = tab;
+                // Align the first tab with the search magnifier below.
+                ui.add_space(8.0);
+                ui.spacing_mut().item_spacing.x = 18.0;
+                ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icon").size(14.0));
+                ui.selectable_value(&mut self.tab, MainTab::Settings, egui::RichText::new("Settings").size(14.0));
+                ui.selectable_value(&mut self.tab, MainTab::Info, egui::RichText::new("Info").size(14.0));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(14.0);
+                    let open_figcraft = ui.add(egui::Button::new("↗").frame(false))
+                        .on_hover_text("Open FigCraft with control enabled");
+                    if open_figcraft.clicked() {
+                        self.launch_figcraft();
                     }
-                }
+                });
             });
         });
 
         egui::Panel::bottom("catalogue_footer")
-            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
-                .inner_margin(egui::Margin { left: 20, right: 18, top: 5, bottom: 5 }))
+            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill).inner_margin(egui::Margin::symmetric(12, 5)))
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
                         .size(11.5).underline().color(egui::Color32::from_gray(175)));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // Keep refresh at the far right; place the selected-icon SVG copy
-                        // action immediately to its left, matching the supplied reference.
-                        let (refresh_rect, refresh_response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
-                            if self.loading { egui::Sense::hover() } else { egui::Sense::click() });
-                        if let Some(texture) = self.chrome_icons.get("refresh") {
-                            ui.painter().image(texture.id(), egui::Rect::from_center_size(refresh_rect.center(), egui::vec2(15.0, 15.0)),
-                                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
-                        }
-                        if refresh_response.on_hover_text("Update Lucide catalogue").clicked() && !self.loading {
+                        let refresh = ui.add_enabled(!self.loading, egui::Button::new(
+                            egui::RichText::new("⟳").size(18.0).color(egui::Color32::from_gray(190))
+                        ).frame(false));
+                        if refresh.on_hover_text("Update Lucide catalogue").clicked() {
                             self.update_catalogue(&ctx);
-                        }
-
-                        // Keep the FigCraft launcher in the footer as requested.
-                        let (open_rect, open_response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::click());
-                        if let Some(texture) = self.chrome_icons.get("open") {
-                            ui.painter().image(texture.id(), egui::Rect::from_center_size(open_rect.center(), egui::vec2(14.0, 14.0)),
-                                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
-                        }
-                        if open_response.on_hover_text("Open FigCraft with control enabled").clicked() {
-                            self.launch_figcraft();
-                        }
-
-                        let has_selection = self.selected_icon().is_some();
-                        let (copy_rect, copy_response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0),
-                            if has_selection { egui::Sense::click() } else { egui::Sense::hover() });
-                        if let Some(texture) = self.chrome_icons.get("copy") {
-                            ui.painter().image(texture.id(), egui::Rect::from_center_size(copy_rect.center(), egui::vec2(14.0, 14.0)),
-                                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
-                                if has_selection { egui::Color32::WHITE } else { egui::Color32::from_gray(105) });
-                        }
-                        if copy_response.on_hover_text(if has_selection { "Copy selected icon SVG" } else { "Select an icon to copy its SVG" }).clicked() {
-                            if let Some(icon) = self.selected_icon() {
-                                ctx.copy_text(self.styled_svg(&icon));
-                                self.status = format!("Copied {} SVG.", icon.name);
-                            }
                         }
                     });
                 });
@@ -419,19 +364,16 @@ impl eframe::App for CompanionApp {
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
-                .inner_margin(egui::Margin { left: 18, right: 18, top: 0, bottom: 0 }))
+                .inner_margin(egui::Margin::symmetric(16, 0)))
             .show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
                     ui.add_space(8.0);
                     // Minimal search toolbar based on the supplied Lucide mockup.
                     ui.horizontal(|ui| {
-                        let category_width = 100.0_f32;
-                        let gap = 8.0_f32;
-                        // Align the category control's right edge with the visible right edge of the last grid icon.
-                        let right_inset = 17.0_f32;
-                        // Start the magnifier on the same left guide as the tabs and icon grid.
-                        let available = (ui.available_width() - right_inset).max(1.0);
+                        let category_width = 146.0_f32;
+                        let gap = 10.0_f32;
+                        let available = ui.available_width();
                         let search_width = (available - category_width - gap).max(112.0);
                         ui.allocate_ui_with_layout(
                             egui::vec2(search_width, 34.0),
@@ -445,11 +387,11 @@ impl eframe::App for CompanionApp {
                                     search_icon_rect.center().x - 2.0,
                                     search_icon_rect.center().y - 2.0,
                                 );
-                                let search_stroke = egui::Stroke::new(1.7, egui::Color32::WHITE);
-                                ui.painter().circle_stroke(search_center, 4.8, search_stroke);
+                                let search_stroke = egui::Stroke::new(1.8, egui::Color32::WHITE);
+                                ui.painter().circle_stroke(search_center, 6.0, search_stroke);
                                 ui.painter().line_segment(
-                                    [egui::pos2(search_center.x + 3.8, search_center.y + 3.8),
-                                     egui::pos2(search_center.x + 7.0, search_center.y + 7.0)],
+                                    [egui::pos2(search_center.x + 4.5, search_center.y + 4.5),
+                                     egui::pos2(search_center.x + 9.0, search_center.y + 9.0)],
                                     search_stroke,
                                 );
                                 // Keep a fixed trailing clear-button slot so typing never
@@ -459,8 +401,6 @@ impl eframe::App for CompanionApp {
                                 let _response = ui.add_sized(
                                     [text_width, 34.0],
                                     egui::TextEdit::singleline(&mut self.query)
-                                        .font(egui::FontId::proportional(18.0))
-                                        .vertical_align(egui::Align::Center)
                                         .hint_text("Search")
                                         .frame(egui::Frame::NONE),
                                 );
@@ -470,17 +410,8 @@ impl eframe::App for CompanionApp {
                                     |ui| {
                                         if self.query.is_empty() {
                                             ui.add_space(clear_slot_width);
-                                        } else {
-                                            let (rect, response) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::click());
-                                            if let Some(texture) = self.chrome_icons.get("cancel") {
-                                                ui.painter().image(texture.id(),
-                                                    egui::Rect::from_center_size(rect.center(), egui::vec2(13.0, 13.0)),
-                                                    egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
-                                                    egui::Color32::from_gray(185));
-                                            }
-                                            if response.on_hover_text("Clear search").clicked() {
-                                                self.query.clear();
-                                            }
+                                        } else if ui.small_button("×").clicked() {
+                                            self.query.clear();
                                         }
                                     },
                                 );
@@ -489,36 +420,15 @@ impl eframe::App for CompanionApp {
                         );
                         ui.add_space(gap);
                         let groups = self.available_groups();
-                        // Own the label so the ComboBox callback can mutably update
-                        // self.group without retaining an immutable borrow across the closure.
                         let selected_filter = match self.view {
-                            LibraryView::Favorites => "Favorites".to_owned(),
-                            LibraryView::Recent => "Recent".to_owned(),
-                            LibraryView::All => self.group.clone().unwrap_or_else(|| "All categories".to_owned()),
+                            LibraryView::Favorites => "Favorites",
+                            LibraryView::Recent => "Recent",
+                            LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
                         };
-                        ui.scope(|ui| {
-                            // Match the selector's surface to the window instead of the
-                            // brighter default inactive-widget fill.
-                            let panel_fill = ui.visuals().panel_fill;
-                            ui.visuals_mut().widgets.inactive.bg_fill = panel_fill;
-                            ui.visuals_mut().widgets.hovered.bg_fill = panel_fill;
-                            ui.visuals_mut().widgets.active.bg_fill = panel_fill;
-                            ui.visuals_mut().widgets.open.bg_fill = panel_fill;
-                            egui::ComboBox::from_id_salt("tag_group_filter")
-                            .selected_text(egui::RichText::new(selected_filter).size(12.5).strong())
+                        egui::ComboBox::from_id_salt("tag_group_filter")
+                            .selected_text(selected_filter)
                             .width(category_width)
                             .height(560.0)
-                            .icon({
-                                let dropdown_id = self.chrome_icons.get("dropdown").map(|texture| texture.id());
-                                move |ui, rect, visuals, _is_open| {
-                                    if let Some(texture_id) = dropdown_id {
-                                        let image_rect = egui::Rect::from_center_size(rect.center(), egui::vec2(12.0, 12.0));
-                                        ui.painter().image(texture_id, image_rect,
-                                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
-                                            visuals.fg_stroke.color);
-                                    }
-                                }
-                            })
                             .show_ui(ui, |ui| {
                                 ui.set_min_width(232.0);
                                 ui.selectable_value(&mut self.view, LibraryView::All, "All icons");
@@ -531,79 +441,61 @@ impl eframe::App for CompanionApp {
                                     ui.selectable_value(&mut self.group, Some(group.clone()), group);
                                 }
                             });
-                        });
-                        ui.add_space(right_inset);
                     });
                     ui.add_space(2.0);
                     let names = self.filtered_icon_names();
                     // Recalculate the number and width of cells from the live viewport width.
                     // This keeps the icon grid centred and evenly spaced as the window is resized.
                     let grid_width = ui.available_width().max(1.0);
-                    // Preserve the official six-column layout at the target compact width.
-                    let columns = if grid_width >= 240.0 { 6 } else { 5 };
-                    let row_height = 48.0;
+                    let columns = ((grid_width / 50.0).floor() as usize).clamp(5, 6);
+                    let cell_width = grid_width / columns as f32;
+                    let row_height = 58.0;
                     let rows = names.len().div_ceil(columns);
                     egui::ScrollArea::vertical().auto_shrink([false, false])
                         .show_rows(ui, row_height, rows, |ui, range| {
                             for row in range {
-                                // Allocate one fixed-width row, then place each cell by
-                                // absolute coordinates inside that row. This avoids egui's
-                                // expanding horizontal layout consuming the trailing inset.
-                                // The ScrollArea's content can be wider than its visible
-                                // viewport. End the row at the clip boundary so the trailing
-                                // inset is measured from the actual window edge, not hidden
-                                // scroll content.
-                                let row_available = ui.available_rect_before_wrap();
-                                let visible_right = ui.clip_rect().right();
-                                let row_width = (visible_right - row_available.left()).max(1.0);
-                                let (row_rect, _) = ui.allocate_exact_size(
-                                    egui::vec2(row_width, row_height), egui::Sense::hover());
-                                let left_gap = 4.0_f32;
-                                let right_gap = 20.0_f32;
-                                let usable_width = (row_rect.width() - left_gap - right_gap).max(1.0);
-                                let cell_width = usable_width / columns as f32;
-
-                                for col in 0..columns {
-                                    let index = row * columns + col;
-                                    let Some(name) = names.get(index) else { break; };
-                                    let cell_rect = egui::Rect::from_min_size(
-                                        egui::pos2(row_rect.left() + left_gap + cell_width * col as f32,
-                                                   row_rect.top()),
-                                        egui::vec2(cell_width, row_height));
-                                    let response = ui.interact(
-                                        cell_rect, ui.make_persistent_id(("icon-grid-cell", index)),
-                                        egui::Sense::click());
-                                    let selected = self.selected.as_ref() == Some(name);
-                                    let icon_rect = egui::Rect::from_center_size(
-                                        cell_rect.center(), egui::vec2(42.0, 42.0));
-                                    if selected {
-                                        ui.painter().rect_filled(icon_rect, 6.0, ui.visuals().selection.bg_fill);
-                                    } else if response.hovered() {
-                                        ui.painter().rect_filled(icon_rect, 6.0, ui.visuals().widgets.hovered.bg_fill);
+                                ui.horizontal(|ui| {
+                                    ui.spacing_mut().item_spacing.x = 0.0;
+                                    for col in 0..columns {
+                                        let index = row * columns + col;
+                                        let Some(name) = names.get(index) else { break; };
+                                        let selected = self.selected.as_ref() == Some(name);
+                                        let svg = self.icons.iter().find(|icon| icon.name == *name)
+                                            .map(|icon| icon.svg.replace("currentColor", "#eeeeee"));
+                                        ui.allocate_ui_with_layout(
+                                            egui::vec2(cell_width, row_height),
+                                            egui::Layout::top_down(egui::Align::Center),
+                                            |ui| {
+                                                let (rect, response) = ui.allocate_exact_size(
+                                                    egui::vec2(54.0, 54.0), egui::Sense::click());
+                                                if selected {
+                                                    ui.painter().rect_filled(rect, 6.0, ui.visuals().selection.bg_fill);
+                                                } else if response.hovered() {
+                                                    ui.painter().rect_filled(rect, 6.0, ui.visuals().widgets.hovered.bg_fill);
+                                                }
+                                                if !self.grid_previews.contains_key(name) {
+                                                    if let Some(svg) = svg.as_deref() {
+                                                        if let Some(texture) = Self::render_preview(&ctx, svg, &format!("grid-{name}")) {
+                                                            self.grid_previews.insert(name.clone(), texture);
+                                                        }
+                                                    }
+                                                }
+                                                if let Some(texture) = self.grid_previews.get(name) {
+                                                    let image_rect = egui::Rect::from_center_size(
+                                                        rect.center(), egui::vec2(32.0, 32.0));
+                                                    ui.painter().image(texture.id(), image_rect,
+                                                        egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                                                        egui::Color32::WHITE);
+                                                }
+                                                if response.on_hover_text(name).clicked() {
+                                                    self.select_icon(name);
+                                                    if let Some(icon) = self.selected_icon() {
+                                                        self.insert_into_figcraft(&icon, &ctx);
+                                                    }
+                                                }
+                                            });
                                     }
-                                    if !self.grid_previews.contains_key(name) {
-                                        if let Some(svg) = self.icons.iter().find(|icon| icon.name == *name)
-                                            .map(|icon| icon.svg.replace("currentColor", "#eeeeee")) {
-                                            if let Some(texture) = Self::render_preview(&ctx, &svg, &format!("grid-{name}")) {
-                                                self.grid_previews.insert(name.clone(), texture);
-                                            }
-                                        }
-                                    }
-                                    if let Some(texture) = self.grid_previews.get(name) {
-                                        let image_rect = egui::Rect::from_center_size(
-                                            icon_rect.center(), egui::vec2(24.0, 24.0));
-                                        ui.painter().image(texture.id(), image_rect,
-                                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
-                                            egui::Color32::WHITE);
-                                    }
-                                    if response.on_hover_text(name).clicked() {
-                                        self.select_icon(name);
-                                        if let Some(icon) = self.selected_icon() {
-                                            self.insert_into_figcraft(&icon, &ctx);
-                                        }
-                                    }
-                                }
-
+                                });
                             }
                         });
                     if let Some(icon) = self.selected_icon() {
