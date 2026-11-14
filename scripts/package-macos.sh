@@ -44,9 +44,13 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleName</key><string>Lucide Companion</string>
   <key>CFBundleDisplayName</key><string>Lucide Companion for FigCraft</string>
-  <key>CFBundleIdentifier</key><string>dev.jayanta.lucide-icon-companion</string>
+  <key>CFBundleIdentifier</key><string>dev.jayanta.lucide-icon-companion.preview</string>
   <key>CFBundleVersion</key><string>0.2.0</string>
   <key>CFBundleShortVersionString</key><string>0.2.0</string>
+  <key>LucideBuildChannel</key><string>preview</string>
+  <key>LucideBuildBranch</key><string>${BUILD_BRANCH}</string>
+  <key>LucideBuildCommit</key><string>${BUILD_COMMIT}</string>
+  <key>LucideBuildDate</key><string>${BUILD_DATE}</string>
   <key>CFBundleExecutable</key><string>LucideCompanion</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
