@@ -320,9 +320,9 @@ impl eframe::App for CompanionApp {
             // Title shares the traffic-light row, as in the compact reference.
             #[cfg(target_os = "macos")]
             {
-                // The native traffic lights sit above the content origin. Add vertical
-                // offset so the title's centre aligns with the lights, not their top edge.
-                ui.add_space(8.0);
+                // Push the title row down to align its text centre with the native
+                // traffic-light controls. The extra padding is intentional.
+                ui.add_space(14.0);
                 ui.horizontal(|ui| {
                 ui.add_space(74.0);
                 ui.label(egui::RichText::new("Lucid Icon")
@@ -331,7 +331,8 @@ impl eframe::App for CompanionApp {
                     .color(egui::Color32::from_gray(242)));
                 });
             }
-            ui.add_space(1.0);
+            // The tabs also sit slightly lower, matching the compact reference.
+            ui.add_space(5.0);
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
@@ -455,6 +456,7 @@ impl eframe::App for CompanionApp {
                             style.visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
                             ui.set_style(style);
                             egui::ComboBox::from_id_salt("tag_group_filter")
+                                .button_frame(false)
                                 .selected_text(selected_filter)
                                 .width(category_width)
                                 .height(560.0)
