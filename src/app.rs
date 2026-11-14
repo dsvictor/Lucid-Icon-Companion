@@ -318,27 +318,25 @@ impl eframe::App for CompanionApp {
         let ctx = root_ui.ctx().clone();
         // One compact navigation row: keep the window chrome, remove the redundant in-app title bar.
         egui::Panel::top("navigation")
-            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
+            .frame(egui::Frame::new()
+                .fill(root_ui.visuals().panel_fill)
+                .stroke(egui::Stroke::NONE))
             .show(root_ui, |ui| {
-            // Title shares the traffic-light row, as in the compact reference.
+            // Center the title across the window and vertically within the native titlebar row.
             #[cfg(target_os = "macos")]
             {
-                // The full-size content view already reserves the traffic-light area.
-                // Keep the title in that same top row instead of adding a second row.
                 let title_row_width = ui.available_width();
                 let title_row = ui.allocate_ui_with_layout(
-                    egui::vec2(title_row_width, 26.0),
-                    egui::Layout::left_to_right(egui::Align::Center),
+                    egui::vec2(title_row_width, 30.0),
+                    egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
                     |ui| {
-                        ui.add_space(74.0);
                         ui.label(egui::RichText::new("Lucid Icon")
                             .font(egui::FontId::proportional(16.0))
                             .strong()
                             .color(egui::Color32::from_gray(242)));
                     },
                 );
-                // Align native AppKit controls to the exact egui title row.
-                // eframe 0.37 resets these positions during window layout, so call every frame.
+                // Align native AppKit controls vertically with the title row.
                 _frame.set_traffic_lights_position(&ctx, title_row.response.rect.y_range(), 12.0);
             }
             // Keep a clear visual gap between the title row and navigation tabs.
@@ -366,7 +364,9 @@ impl eframe::App for CompanionApp {
         });
 
         egui::Panel::bottom("catalogue_footer")
-            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
+            .frame(egui::Frame::new()
+                .fill(root_ui.visuals().panel_fill)
+                .stroke(egui::Stroke::NONE)
                 .inner_margin(egui::Margin::symmetric(12, 5)))
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
