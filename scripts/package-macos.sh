@@ -59,6 +59,16 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+plutil -lint "$APP/Contents/Info.plist"
+cat > "dist/BUILD-INFO.txt" <<BUILDINFO
+Build type: preview
+App version: 0.2.0
+Bundle identifier: dev.jayanta.lucide-icon-companion.preview
+Branch: ${BUILD_BRANCH}
+Commit: ${BUILD_COMMIT}
+Built: ${BUILD_DATE}
+BUILDINFO
+
 rm -rf "$DMG_ROOT"
 mkdir -p "$DMG_ROOT"
 cp -R "$APP" "$DMG_ROOT/"
