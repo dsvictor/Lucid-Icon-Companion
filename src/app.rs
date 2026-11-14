@@ -411,7 +411,7 @@ impl eframe::App for CompanionApp {
                             egui::vec2(search_width, 30.0),
                             egui::Layout::left_to_right(egui::Align::Center),
                             |ui| {
-                                ui.spacing_mut().item_spacing.x = 2.0;
+                                ui.spacing_mut().item_spacing.x = 7.0;
                                 // Draw the magnifier with vector primitives so it renders on every system font.
                                 let (search_icon_rect, _) = ui.allocate_exact_size(
                                     egui::vec2(16.0, 30.0), egui::Sense::hover());
@@ -466,7 +466,7 @@ impl eframe::App for CompanionApp {
                             ).frame(false)
                         );
                         // Draw a true vector chevron; avoid font-dependent ▾ glyph fallback.
-                        let chevron_center = egui::pos2(category_button.rect.right() - 9.0, category_button.rect.center().y);
+                        let chevron_center = egui::pos2(category_button.rect.right() - 15.0, category_button.rect.center().y);
                         let chevron_stroke = egui::Stroke::new(1.2, egui::Color32::from_gray(155));
                         ui.painter().line_segment(
                             [chevron_center + egui::vec2(-3.0, -1.5), chevron_center + egui::vec2(0.0, 1.5)],
