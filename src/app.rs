@@ -323,9 +323,8 @@ impl eframe::App for CompanionApp {
             // Title shares the traffic-light row, as in the compact reference.
             #[cfg(target_os = "macos")]
             {
-                // Push the title row down to align its text centre with the native
-                // traffic-light controls. The extra padding is intentional.
-                ui.add_space(37.0);
+                // The full-size content view already reserves the traffic-light area.
+                // Keep the title in that same top row instead of adding a second row.
                 let title_row_width = ui.available_width();
                 ui.allocate_ui_with_layout(
                     egui::vec2(title_row_width, 26.0),
