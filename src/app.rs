@@ -317,43 +317,56 @@ impl eframe::App for CompanionApp {
         egui::Panel::top("navigation")
             .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill))
             .show(root_ui, |ui| {
+            // Title shares the traffic-light row, as in the compact reference.
             #[cfg(target_os = "macos")]
             ui.horizontal(|ui| {
-                // Place the title on the same horizontal line as the traffic lights.
                 ui.add_space(74.0);
-                ui.label(egui::RichText::new("Lucide Icon")
+                ui.label(egui::RichText::new("Lucid Icon")
                     .font(egui::FontId::proportional(16.0))
                     .strong()
                     .color(egui::Color32::from_gray(242)));
             });
-            ui.add_space(2.0);
+            ui.add_space(1.0);
             ui.horizontal(|ui| {
-                // Align the first tab with the search magnifier below.
                 ui.add_space(8.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
-                ui.selectable_value(&mut self.tab, MainTab::Icons, egui::RichText::new("Icon").size(14.0));
-                ui.selectable_value(&mut self.tab, MainTab::Settings, egui::RichText::new("Settings").size(14.0));
-                ui.selectable_value(&mut self.tab, MainTab::Info, egui::RichText::new("Info").size(14.0));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(14.0);
-                    let open_figcraft = ui.add(egui::Button::new("↗").frame(false))
-                        .on_hover_text("Open FigCraft with control enabled");
-                    if open_figcraft.clicked() {
-                        self.launch_figcraft();
-                    }
-                });
+                let tab_color = egui::Color32::from_gray(190);
+                let active_color = egui::Color32::from_gray(248);
+                if ui.add(egui::Button::new(egui::RichText::new("Icon").size(14.0)
+                    .color(if self.tab == MainTab::Icons { active_color } else { tab_color })).frame(false)).clicked() {
+                    self.tab = MainTab::Icons;
+                }
+                if ui.add(egui::Button::new(egui::RichText::new("Settings").size(14.0)
+                    .color(if self.tab == MainTab::Settings { active_color } else { tab_color })).frame(false)).clicked() {
+                    self.tab = MainTab::Settings;
+                }
+                if ui.add(egui::Button::new(egui::RichText::new("Info").size(14.0)
+                    .color(if self.tab == MainTab::Info { active_color } else { tab_color })).frame(false)).clicked() {
+                    self.tab = MainTab::Info;
+                }
             });
         });
 
         egui::Panel::bottom("catalogue_footer")
-            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill).inner_margin(egui::Margin::symmetric(12, 5)))
+            .frame(egui::Frame::new().fill(root_ui.visuals().panel_fill)
+                .inner_margin(egui::Margin::symmetric(12, 5)))
             .show_inside(root_ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
-                        .size(11.5).underline().color(egui::Color32::from_gray(175)));
+                        .size(11.0).underline().color(egui::Color32::from_gray(155)));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let open = ui.add(egui::Button::new(
+                            egui::RichText::new("Open FigCraft").size(10.5)
+                                .color(egui::Color32::from_gray(205))
+                        ).fill(egui::Color32::from_rgb(66, 66, 66))
+                            .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88)))
+                            .rounding(egui::Rounding::same(7)));
+                        if open.on_hover_text("Open FigCraft with control enabled").clicked() {
+                            self.launch_figcraft();
+                        }
+                        ui.add_space(5.0);
                         let refresh = ui.add_enabled(!self.loading, egui::Button::new(
-                            egui::RichText::new("⟳").size(18.0).color(egui::Color32::from_gray(190))
+                            egui::RichText::new("⟳").size(16.0).color(egui::Color32::from_gray(175))
                         ).frame(false));
                         if refresh.on_hover_text("Update Lucide catalogue").clicked() {
                             self.update_catalogue(&ctx);
@@ -368,7 +381,7 @@ impl eframe::App for CompanionApp {
             .show(root_ui, |ui| {
             match self.tab {
                 MainTab::Icons => {
-                    ui.add_space(8.0);
+                    ui.add_space(5.0);
                     // Minimal search toolbar based on the supplied Lucide mockup.
                     ui.horizontal(|ui| {
                         let category_width = 146.0_f32;
@@ -376,13 +389,13 @@ impl eframe::App for CompanionApp {
                         let available = ui.available_width();
                         let search_width = (available - category_width - gap).max(112.0);
                         ui.allocate_ui_with_layout(
-                            egui::vec2(search_width, 34.0),
+                            egui::vec2(search_width, 30.0),
                             egui::Layout::left_to_right(egui::Align::Center),
                             |ui| {
                                 ui.spacing_mut().item_spacing.x = 7.0;
                                 // Draw the magnifier with vector primitives so it renders on every system font.
                                 let (search_icon_rect, _) = ui.allocate_exact_size(
-                                    egui::vec2(22.0, 34.0), egui::Sense::hover());
+                                    egui::vec2(22.0, 30.0), egui::Sense::hover());
                                 let search_center = egui::pos2(
                                     search_icon_rect.center().x - 2.0,
                                     search_icon_rect.center().y - 2.0,
@@ -399,13 +412,13 @@ impl eframe::App for CompanionApp {
                                 let clear_slot_width = 22.0_f32;
                                 let text_width = (ui.available_width() - clear_slot_width - 4.0).max(40.0);
                                 let _response = ui.add_sized(
-                                    [text_width, 34.0],
+                                    [text_width, 30.0],
                                     egui::TextEdit::singleline(&mut self.query)
                                         .hint_text("Search")
                                         .frame(egui::Frame::NONE),
                                 );
                                 let _clear_slot = ui.allocate_ui_with_layout(
-                                    egui::vec2(clear_slot_width, 34.0),
+                                    egui::vec2(clear_slot_width, 30.0),
                                     egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
                                     |ui| {
                                         if self.query.is_empty() {
@@ -442,7 +455,7 @@ impl eframe::App for CompanionApp {
                                 }
                             });
                     });
-                    ui.add_space(2.0);
+                    ui.add_space(0.0);
                     let names = self.filtered_icon_names();
                     // Recalculate the number and width of cells from the live viewport width.
                     // This keeps the icon grid centred and evenly spaced as the window is resized.
