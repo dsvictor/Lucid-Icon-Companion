@@ -9,11 +9,13 @@ APP="dist/Lucide Companion.app"
 BIN="target/$TARGET/release/lucide-icon-companion"
 DMG_ROOT="dist/dmg-root"
 DMG="dist/Lucide-Companion-macOS-arm64.dmg"
+APP_VERSION="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+BUNDLE_ID="dev.jayanta.lucide-icon-companion"
 
 BUILD_COMMIT="$(git rev-parse --short HEAD)"
 BUILD_BRANCH="$(git branch --show-current)"
 BUILD_DATE="$(date '+%Y-%m-%d %H:%M:%S %Z')"
-LUCIDE_BUILD_CHANNEL="preview" \
+LUCIDE_BUILD_CHANNEL="stable" \
 LUCIDE_BUILD_BRANCH="$BUILD_BRANCH" \
 LUCIDE_BUILD_COMMIT="$BUILD_COMMIT" \
 LUCIDE_BUILD_DATE="$BUILD_DATE" \
@@ -44,10 +46,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleName</key><string>Lucide Companion</string>
   <key>CFBundleDisplayName</key><string>Lucide Companion for FigCraft</string>
-  <key>CFBundleIdentifier</key><string>dev.jayanta.lucide-icon-companion.preview</string>
-  <key>CFBundleVersion</key><string>0.2.0</string>
-  <key>CFBundleShortVersionString</key><string>0.2.0</string>
-  <key>LucideBuildChannel</key><string>preview</string>
+  <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
+  <key>CFBundleVersion</key><string>$APP_VERSION</string>
+  <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>
+  <key>LucideBuildChannel</key><string>stable</string>
   <key>LucideBuildBranch</key><string>${BUILD_BRANCH}</string>
   <key>LucideBuildCommit</key><string>${BUILD_COMMIT}</string>
   <key>LucideBuildDate</key><string>${BUILD_DATE}</string>
@@ -61,9 +63,9 @@ PLIST
 
 plutil -lint "$APP/Contents/Info.plist"
 cat > "dist/BUILD-INFO.txt" <<BUILDINFO
-Build type: preview
-App version: 0.2.0
-Bundle identifier: dev.jayanta.lucide-icon-companion.preview
+Build type: stable
+App version: $APP_VERSION
+Bundle identifier: $BUNDLE_ID
 Branch: ${BUILD_BRANCH}
 Commit: ${BUILD_COMMIT}
 Built: ${BUILD_DATE}
