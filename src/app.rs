@@ -326,7 +326,7 @@ impl eframe::App for CompanionApp {
                 // The full-size content view already reserves the traffic-light area.
                 // Keep the title in that same top row instead of adding a second row.
                 let title_row_width = ui.available_width();
-                ui.allocate_ui_with_layout(
+                let title_row = ui.allocate_ui_with_layout(
                     egui::vec2(title_row_width, 26.0),
                     egui::Layout::left_to_right(egui::Align::Center),
                     |ui| {
@@ -337,6 +337,9 @@ impl eframe::App for CompanionApp {
                             .color(egui::Color32::from_gray(242)));
                     },
                 );
+                // Align native AppKit controls to the exact egui title row.
+                // eframe 0.37 resets these positions during window layout, so call every frame.
+                _frame.set_traffic_lights_position(&ctx, title_row.response.rect.y_range(), 12.0);
             }
             // Keep a clear visual gap between the title row and navigation tabs.
             ui.add_space(5.0);
@@ -369,6 +372,13 @@ impl eframe::App for CompanionApp {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
                         .size(11.0).color(egui::Color32::from_gray(155)));
+                    ui.add_space(4.0);
+                    let refresh = ui.add_enabled(!self.loading, egui::Button::new(
+                        egui::RichText::new("⟳").size(17.0).color(egui::Color32::from_gray(175))
+                    ).frame(false));
+                    if refresh.on_hover_text("Update Lucide catalogue").clicked() {
+                        self.update_catalogue(&ctx);
+                    }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let open = ui.add(egui::Button::new(
                             egui::RichText::new("Open FigCraft").size(10.5)
@@ -377,13 +387,6 @@ impl eframe::App for CompanionApp {
                             .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88))));
                         if open.on_hover_text("Open FigCraft with control enabled").clicked() {
                             self.launch_figcraft();
-                        }
-                        ui.add_space(8.0);
-                        let refresh = ui.add_enabled(!self.loading, egui::Button::new(
-                            egui::RichText::new("⟳").size(17.0).color(egui::Color32::from_gray(175))
-                        ).frame(false));
-                        if refresh.on_hover_text("Update Lucide catalogue").clicked() {
-                            self.update_catalogue(&ctx);
                         }
                     });
                 });
@@ -453,12 +456,24 @@ impl eframe::App for CompanionApp {
                             LibraryView::Recent => "Recent",
                             LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
                         };
-                        let category_button = ui.add(
+                        let category_button = ui.add_sized(
+                            [category_width, 30.0],
                             egui::Button::new(
-                                egui::RichText::new(format!("{selected_filter}  ▾"))
+                                egui::RichText::new(selected_filter)
                                     .size(13.0)
                                     .color(egui::Color32::from_gray(175))
                             ).frame(false)
+                        );
+                        // Draw a true vector chevron; avoid font-dependent ▾ glyph fallback.
+                        let chevron_center = egui::pos2(category_button.rect.right() - 9.0, category_button.rect.center().y);
+                        let chevron_stroke = egui::Stroke::new(1.2, egui::Color32::from_gray(155));
+                        ui.painter().line_segment(
+                            [chevron_center + egui::vec2(-3.0, -1.5), chevron_center + egui::vec2(0.0, 1.5)],
+                            chevron_stroke,
+                        );
+                        ui.painter().line_segment(
+                            [chevron_center + egui::vec2(0.0, 1.5), chevron_center + egui::vec2(3.0, -1.5)],
+                            chevron_stroke,
                         );
                         self.category_popup_pos = egui::pos2(
                             category_button.rect.right() - 232.0,
