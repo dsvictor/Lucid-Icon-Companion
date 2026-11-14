@@ -322,7 +322,7 @@ impl eframe::App for CompanionApp {
             {
                 // Push the title row down to align its text centre with the native
                 // traffic-light controls. The extra padding is intentional.
-                ui.add_space(14.0);
+                ui.add_space(25.0);
                 ui.horizontal(|ui| {
                 ui.add_space(74.0);
                 ui.label(egui::RichText::new("Lucid Icon")
@@ -331,8 +331,8 @@ impl eframe::App for CompanionApp {
                     .color(egui::Color32::from_gray(242)));
                 });
             }
-            // The tabs also sit slightly lower, matching the compact reference.
-            ui.add_space(5.0);
+            // Keep a clear visual gap between the title row and navigation tabs.
+            ui.add_space(17.0);
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
@@ -351,6 +351,8 @@ impl eframe::App for CompanionApp {
                     self.tab = MainTab::Info;
                 }
             });
+            // Separate navigation from the search toolbar as in the reference layout.
+            ui.add_space(12.0);
         });
 
         egui::Panel::bottom("catalogue_footer")
@@ -448,12 +450,15 @@ impl eframe::App for CompanionApp {
                             style.visuals.widgets.noninteractive.bg_fill = egui::Color32::TRANSPARENT;
                             style.visuals.widgets.noninteractive.bg_stroke = egui::Stroke::NONE;
                             style.visuals.widgets.inactive.bg_fill = egui::Color32::TRANSPARENT;
+                            style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
                             style.visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
-                            style.visuals.button_frame = false;
-                            style.visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(55);
+                            style.visuals.widgets.hovered.bg_fill = egui::Color32::TRANSPARENT;
+                            style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::TRANSPARENT;
                             style.visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
-                            style.visuals.widgets.active.bg_fill = egui::Color32::from_gray(62);
+                            style.visuals.widgets.active.bg_fill = egui::Color32::TRANSPARENT;
+                            style.visuals.widgets.active.weak_bg_fill = egui::Color32::TRANSPARENT;
                             style.visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
+                            style.visuals.button_frame = false;
                             ui.set_style(style);
                             egui::ComboBox::from_id_salt("tag_group_filter")
                                 .selected_text(selected_filter)
