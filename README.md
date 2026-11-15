@@ -31,6 +31,8 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 - Import SVG as editable geometry with `engine.execute` → `file.import`; the selected Lucide icon name is passed as the import name.
 - Clipboard Copy remains a generic SVG paste operation and FigCraft may label that object “Pasted SVG”; use Insert for the named import path.
 - Insert centred in the current viewport or at explicit canvas X/Y coordinates.
+- Right-click any icon for Copy icon (SVG + PNG), Insert into FigCraft, and Favorites actions.
+- Copy icon writes both the original 24 × 24 SVG vector and a transparent PNG fallback to the macOS clipboard, allowing compatible apps to choose the best representation.
 - Catalogue download and FigCraft actions run in background threads so the UI stays responsive.
 
 ### Keyboard
@@ -115,12 +117,14 @@ bash scripts/package-macos.sh
 
 The companion connects to `127.0.0.1:7979` using newline-delimited JSON. It launches FigCraft with `--control 7979`, tests the connection with `window.list`, and sends SVG data as base64 through `engine.execute` / `file.import`.
 
+FigCraft must have been started with the optional control channel enabled. A FigCraft instance that was opened normally cannot be attached to retroactively by the companion. If it is already running without control, quit it and use **Open FigCraft** in Lucide Companion. The app will not force-open a second FigCraft instance.
+
 The import command accepts X/Y coordinates and a `center` flag. When centred mode is enabled, no explicit coordinates are sent and FigCraft uses the current viewport centre.
 
 ## Known limitations
 
 - Lucide's static package publishes tags and tag groups, not a separate category taxonomy; the app therefore exposes upstream tag groups rather than inventing categories.
-- Runtime insertion still needs a hands-on test against the user's installed FigCraft 0.15.0 and active document.
+- FigCraft's control channel is opt-in at application startup. If FigCraft is already open without the control channel, quit it completely and click Open FigCraft in Lucide Companion to relaunch it with control enabled. The companion intentionally avoids spawning a duplicate FigCraft window.
 - Dragging icons directly out of the companion into another app is not implemented yet; use the named Insert action, Copy SVG, or Export SVG.
 - The macOS package is unsigned and not notarized. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
 - Windows and Linux are included in CI compile checks; native installers and interactive runtime testing remain future work after macOS behaviour is validated.
