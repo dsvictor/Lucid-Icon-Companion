@@ -7,25 +7,26 @@ func fail(_ message: String) -> Never {
 }
 
 let args = CommandLine.arguments
-guard args.count == 3 else {
-    fail("Expected paths to an SVG file and a PNG file.")
+guard args.count == 2 else {
+    fail("Expected one path to an SVG file.")
 }
+
 let svgURL = URL(fileURLWithPath: args[1])
-let pngURL = URL(fileURLWithPath: args[2])
 let svgData: Data
-let pngData: Data
 do {
     svgData = try Data(contentsOf: svgURL)
-    pngData = try Data(contentsOf: pngURL)
 } catch {
-    fail("Could not read clipboard data files: \(error)")
+    fail("Could not read SVG data: \(error)")
 }
 
 let pasteboard = NSPasteboard.general
 pasteboard.clearContents()
-let svgWritten = pasteboard.setData(svgData, forType: NSPasteboard.PasteboardType("public.svg-image"))
-let pngWritten = pasteboard.setData(pngData, forType: .png)
-guard svgWritten && pngWritten else {
-    fail("NSPasteboard did not accept both SVG and PNG representations.")
+let svgType = NSPasteboard.PasteboardType("public.svg-image")
+let textType = NSPasteboard.PasteboardType("public.utf8-plain-text")
+let svgWritten = pasteboard.setData(svgData, forType: svgType)
+let textWritten = pasteboard.setString(String(decoding: svgData, as: UTF8.self), forType: textType)
+
+guard svgWritten && textWritten else {
+    fail("NSPasteboard did not accept the SVG representations.")
 }
-print("Copied SVG and PNG to the macOS clipboard.")
+print("Copied SVG vector data to the macOS clipboard (no PNG).")
