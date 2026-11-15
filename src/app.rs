@@ -404,6 +404,7 @@ impl eframe::App for CompanionApp {
                     // Compute category groups outside the toolbar closure so the popup can use them.
                     let groups = self.available_groups();
                     // One aligned search row; category control is a text-only custom popup.
+                    let mut category_button_rect = None;
                     ui.horizontal(|ui| {
                         let gap = 10.0_f32;
                         let available = ui.available_width();
@@ -480,6 +481,7 @@ impl eframe::App for CompanionApp {
                                     .color(egui::Color32::from_gray(175))
                             ).frame(false)
                         );
+                        category_button_rect = Some(category_button.rect);
                         // Draw a true vector chevron; avoid font-dependent ▾ glyph fallback.
                         let chevron_center = egui::pos2(category_button.rect.right() - 15.0, category_button.rect.center().y);
                         let chevron_stroke = egui::Stroke::new(1.2, egui::Color32::from_gray(155));
@@ -503,16 +505,15 @@ impl eframe::App for CompanionApp {
                     if self.category_open {
                         let popup_pos = self.category_popup_pos;
                         let mut close_popup = false;
-                        egui::Area::new(egui::Id::new("category_filter_popup"))
+                        let popup_response = egui::Area::new(egui::Id::new("category_filter_popup"))
                             .order(egui::Order::Foreground)
                             .fixed_pos(popup_pos)
                             .show(&ctx, |ui| {
                                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                                     ui.set_min_width(232.0);
                                     ui.set_max_width(232.0);
-                                    // Keep the list in a left-to-right child layout so egui places
-                                    // the vertical scrollbar on the right edge, beside the rows.
-                                    let mut popup_style = (*ui.style()).clone();
+                                    // Clone the underlying Style (not its Arc) before adjusting the scrollbar.
+                                    let mut popup_style = (**ui.style()).clone();
                                     popup_style.spacing.scroll.floating = false;
                                     ui.set_style(popup_style);
                                     if ui.selectable_label(self.view == LibraryView::All && self.group.is_none(), "All categories").clicked() {
@@ -529,12 +530,12 @@ impl eframe::App for CompanionApp {
                                         close_popup = true;
                                     }
                                     ui.separator();
-                                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
-                                        egui::ScrollArea::vertical()
-                                            .max_height(420.0)
-                                            .auto_shrink([false, true])
-                                            .show(ui, |ui| {
-                                                ui.set_min_width(208.0);
+                                    egui::ScrollArea::vertical()
+                                        .max_height(320.0)
+                                        .auto_shrink([false, true])
+                                        .show(ui, |ui| {
+                                            ui.set_min_width(208.0);
+                                            ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
                                                 for group in &groups {
                                                     if ui.selectable_label(
                                                         self.view == LibraryView::All && self.group.as_ref() == Some(group),
@@ -546,10 +547,19 @@ impl eframe::App for CompanionApp {
                                                     }
                                                 }
                                             });
-                                    });
+                                        });
                                 });
                             });
-                        if close_popup {
+                        // Dismiss on any click outside both the popup and its trigger control.
+                        let popup_rect = popup_response.response.rect;
+                        let clicked_outside = ctx.input(|input| {
+                            if !input.pointer.any_click() { return false; }
+                            let Some(pointer_pos) = input.pointer.interact_pos() else { return false; };
+                            let on_trigger = category_button_rect
+                                .is_some_and(|rect| rect.contains(pointer_pos));
+                            !popup_rect.contains(pointer_pos) && !on_trigger
+                        });
+                        if close_popup || clicked_outside {
                             self.category_open = false;
                         }
                     }
