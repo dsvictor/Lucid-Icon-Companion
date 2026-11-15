@@ -344,19 +344,30 @@ impl eframe::App for CompanionApp {
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
-                let tab_color = egui::Color32::from_gray(190);
-                let active_color = egui::Color32::from_gray(248);
-                if ui.add(egui::Button::new(egui::RichText::new("Icon").size(14.0)
-                    .color(if self.tab == MainTab::Icons { active_color } else { tab_color })).frame(false)).clicked() {
-                    self.tab = MainTab::Icons;
-                }
-                if ui.add(egui::Button::new(egui::RichText::new("Settings").size(14.0)
-                    .color(if self.tab == MainTab::Settings { active_color } else { tab_color })).frame(false)).clicked() {
-                    self.tab = MainTab::Settings;
-                }
-                if ui.add(egui::Button::new(egui::RichText::new("Info").size(14.0)
-                    .color(if self.tab == MainTab::Info { active_color } else { tab_color })).frame(false)).clicked() {
-                    self.tab = MainTab::Info;
+                // Paint navigation labels after hit-testing so hover can brighten inactive tabs.
+                for (label, tab) in [
+                    ("Icon", MainTab::Icons),
+                    ("Settings", MainTab::Settings),
+                    ("Info", MainTab::Info),
+                ] {
+                    let font = egui::FontId::proportional(14.0);
+                    let text_size = ui.painter().layout_no_wrap(
+                        label.to_owned(), font.clone(), egui::Color32::WHITE,
+                    ).size();
+                    let (rect, response) = ui.allocate_exact_size(
+                        egui::vec2(text_size.x + 8.0, 28.0), egui::Sense::click(),
+                    );
+                    let color = if self.tab == tab || response.hovered() {
+                        egui::Color32::from_gray(248)
+                    } else {
+                        egui::Color32::from_gray(190)
+                    };
+                    ui.painter().text(
+                        rect.center(), egui::Align2::CENTER_CENTER, label, font, color,
+                    );
+                    if response.clicked() {
+                        self.tab = tab;
+                    }
                 }
             });
             // Fixed navigation row height keeps the toolbar position predictable.
@@ -380,11 +391,39 @@ impl eframe::App for CompanionApp {
                         self.update_catalogue(&ctx);
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let open = ui.add(egui::Button::new(
-                            egui::RichText::new("Open FigCraft").size(10.5)
-                                .color(egui::Color32::from_gray(205))
-                        ).fill(egui::Color32::from_rgb(66, 66, 66))
-                            .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88))));
+                        // A custom split-colour button keeps "Craft" in the requested accent green.
+                        let font = egui::FontId::proportional(10.5);
+                        let prefix = ui.painter().layout_no_wrap(
+                            "Open Fig".to_owned(), font.clone(), egui::Color32::WHITE,
+                        );
+                        let suffix = ui.painter().layout_no_wrap(
+                            "Craft".to_owned(), font.clone(), egui::Color32::WHITE,
+                        );
+                        let text_width = prefix.size().x + suffix.size().x;
+                        let (rect, open) = ui.allocate_exact_size(
+                            egui::vec2(text_width + 24.0, 28.0), egui::Sense::click(),
+                        );
+                        let fill = if open.hovered() {
+                            egui::Color32::from_rgb(82, 82, 82)
+                        } else {
+                            egui::Color32::from_rgb(66, 66, 66)
+                        };
+                        ui.painter().rect_filled(rect, 7.0, fill);
+                        ui.painter().rect_stroke(
+                            rect, 7.0,
+                            egui::Stroke::new(0.5, egui::Color32::from_gray(88)),
+                            egui::StrokeKind::Inside,
+                        );
+                        let text_left = rect.center().x - text_width * 0.5;
+                        let text_top = rect.center().y - prefix.size().y * 0.5;
+                        ui.painter().galley(
+                            egui::pos2(text_left, text_top), prefix,
+                            if open.hovered() { egui::Color32::WHITE } else { egui::Color32::from_gray(205) },
+                        );
+                        ui.painter().galley(
+                            egui::pos2(text_left + suffix.size().x.min(0.0) + text_width - suffix.size().x, text_top),
+                            suffix, egui::Color32::from_rgb(12, 219, 150),
+                        );
                         if open.on_hover_text("Open FigCraft with control enabled").clicked() {
                             self.launch_figcraft();
                         }
