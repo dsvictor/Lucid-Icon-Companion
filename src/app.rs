@@ -344,19 +344,30 @@ impl eframe::App for CompanionApp {
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
                 ui.spacing_mut().item_spacing.x = 18.0;
-                let tab_color = egui::Color32::from_gray(190);
-                let active_color = egui::Color32::from_gray(248);
-                if ui.add(egui::Button::new(egui::RichText::new("Icon").size(14.0)
-                    .color(if self.tab == MainTab::Icons { active_color } else { tab_color })).frame(false)).clicked() {
-                    self.tab = MainTab::Icons;
-                }
-                if ui.add(egui::Button::new(egui::RichText::new("Settings").size(14.0)
-                    .color(if self.tab == MainTab::Settings { active_color } else { tab_color })).frame(false)).clicked() {
-                    self.tab = MainTab::Settings;
-                }
-                if ui.add(egui::Button::new(egui::RichText::new("Info").size(14.0)
-                    .color(if self.tab == MainTab::Info { active_color } else { tab_color })).frame(false)).clicked() {
-                    self.tab = MainTab::Info;
+                // Paint navigation labels after hit-testing so hover can brighten inactive tabs.
+                for (label, tab) in [
+                    ("Icon", MainTab::Icons),
+                    ("Settings", MainTab::Settings),
+                    ("Info", MainTab::Info),
+                ] {
+                    let font = egui::FontId::proportional(14.0);
+                    let text_size = ui.painter().layout_no_wrap(
+                        label.to_owned(), font.clone(), egui::Color32::WHITE,
+                    ).size();
+                    let (rect, response) = ui.allocate_exact_size(
+                        egui::vec2(text_size.x + 8.0, 28.0), egui::Sense::click(),
+                    );
+                    let color = if self.tab == tab || response.hovered() {
+                        egui::Color32::from_gray(248)
+                    } else {
+                        egui::Color32::from_gray(190)
+                    };
+                    ui.painter().text(
+                        rect.center(), egui::Align2::CENTER_CENTER, label, font, color,
+                    );
+                    if response.clicked() {
+                        self.tab = tab;
+                    }
                 }
             });
             // Fixed navigation row height keeps the toolbar position predictable.
@@ -380,11 +391,41 @@ impl eframe::App for CompanionApp {
                         self.update_catalogue(&ctx);
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let open = ui.add(egui::Button::new(
-                            egui::RichText::new("Open FigCraft").size(10.5)
-                                .color(egui::Color32::from_gray(205))
-                        ).fill(egui::Color32::from_rgb(66, 66, 66))
-                            .stroke(egui::Stroke::new(0.5, egui::Color32::from_gray(88))));
+                        // A custom split-colour button keeps "Craft" in the requested accent green.
+                        let font = egui::FontId::proportional(10.5);
+                        let prefix = ui.painter().layout_no_wrap(
+                            "Open Fig".to_owned(), font.clone(), egui::Color32::WHITE,
+                        );
+                        let suffix = ui.painter().layout_no_wrap(
+                            "Craft".to_owned(), font.clone(), egui::Color32::WHITE,
+                        );
+                        let prefix_width = prefix.size().x;
+                        let text_height = prefix.size().y;
+                        let text_width = prefix_width + suffix.size().x;
+                        let (rect, open) = ui.allocate_exact_size(
+                            egui::vec2(text_width + 24.0, 28.0), egui::Sense::click(),
+                        );
+                        let fill = if open.hovered() {
+                            egui::Color32::from_rgb(82, 82, 82)
+                        } else {
+                            egui::Color32::from_rgb(66, 66, 66)
+                        };
+                        ui.painter().rect_filled(rect, 7.0, fill);
+                        ui.painter().rect_stroke(
+                            rect, 7.0,
+                            egui::Stroke::new(0.5, egui::Color32::from_gray(88)),
+                            egui::StrokeKind::Inside,
+                        );
+                        let text_left = rect.center().x - text_width * 0.5;
+                        let text_top = rect.center().y - text_height * 0.5;
+                        ui.painter().galley(
+                            egui::pos2(text_left, text_top), prefix,
+                            if open.hovered() { egui::Color32::WHITE } else { egui::Color32::from_gray(205) },
+                        );
+                        ui.painter().galley(
+                            egui::pos2(text_left + prefix_width, text_top),
+                            suffix, egui::Color32::from_rgb(12, 219, 150),
+                        );
                         if open.on_hover_text("Open FigCraft with control enabled").clicked() {
                             self.launch_figcraft();
                         }
@@ -404,6 +445,7 @@ impl eframe::App for CompanionApp {
                     // Compute category groups outside the toolbar closure so the popup can use them.
                     let groups = self.available_groups();
                     // One aligned search row; category control is a text-only custom popup.
+                    let mut category_button_rect = None;
                     ui.horizontal(|ui| {
                         let gap = 10.0_f32;
                         let available = ui.available_width();
@@ -422,10 +464,13 @@ impl eframe::App for CompanionApp {
                             egui::Color32::from_gray(175),
                         );
                         let max_category_width = (available - gap - 112.0).max(146.0);
+                        // Reserve a fixed trailing area for the chevron and its breathing room.
+                        // The label is right-aligned to that area, so longer names grow leftward
+                        // instead of drifting toward or crowding the chevron.
                         let category_width = (label_galley.size().x + 42.0)
                             .max(146.0)
                             .min(max_category_width);
-                        let search_width = (available - category_width - gap).max(112.0);
+                        let search_width = (available - category_width - gap).max(72.0);
                         ui.allocate_ui_with_layout(
                             egui::vec2(search_width, 30.0),
                             egui::Layout::left_to_right(egui::Align::Center),
@@ -472,16 +517,22 @@ impl eframe::App for CompanionApp {
                             },
                         );
                         ui.add_space(gap);
-                        let category_button = ui.add_sized(
-                            [category_width, 30.0],
-                            egui::Button::new(
-                                egui::RichText::new(selected_filter)
-                                    .size(13.0)
-                                    .color(egui::Color32::from_gray(175))
-                            ).frame(false)
+                        let (category_rect, category_response) = ui.allocate_exact_size(
+                            egui::vec2(category_width, 30.0), egui::Sense::click(),
+                        );
+                        category_button_rect = Some(category_rect);
+                        // Right-anchor the label with a stable 27 px gap before the chevron.
+                        let label_pos = egui::pos2(
+                            category_rect.right() - 27.0 - label_galley.size().x,
+                            category_rect.center().y - label_galley.size().y * 0.5,
+                        );
+                        ui.painter().galley(
+                            label_pos, label_galley,
+                            if category_response.hovered() { egui::Color32::from_gray(225) }
+                            else { egui::Color32::from_gray(175) },
                         );
                         // Draw a true vector chevron; avoid font-dependent ▾ glyph fallback.
-                        let chevron_center = egui::pos2(category_button.rect.right() - 15.0, category_button.rect.center().y);
+                        let chevron_center = egui::pos2(category_rect.right() - 15.0, category_rect.center().y);
                         let chevron_stroke = egui::Stroke::new(1.2, egui::Color32::from_gray(155));
                         ui.painter().line_segment(
                             [chevron_center + egui::vec2(-3.0, -1.5), chevron_center + egui::vec2(0.0, 1.5)],
@@ -493,28 +544,25 @@ impl eframe::App for CompanionApp {
                         );
                         const CATEGORY_POPUP_WIDTH: f32 = 232.0;
                         self.category_popup_pos = egui::pos2(
-                            category_button.rect.right() - CATEGORY_POPUP_WIDTH,
-                            category_button.rect.bottom() + 4.0,
+                            category_rect.right() - CATEGORY_POPUP_WIDTH,
+                            category_rect.bottom() + 4.0,
                         );
-                        if category_button.clicked() {
+                        if category_response.clicked() {
                             self.category_open = !self.category_open;
                         }
                     });
                     if self.category_open {
                         let popup_pos = self.category_popup_pos;
                         let mut close_popup = false;
-                        egui::Area::new(egui::Id::new("category_filter_popup"))
+                        let popup_response = egui::Area::new(egui::Id::new("category_filter_popup"))
                             .order(egui::Order::Foreground)
                             .fixed_pos(popup_pos)
                             .show(&ctx, |ui| {
                                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                                     ui.set_min_width(232.0);
                                     ui.set_max_width(232.0);
-                                    // Keep the list in a left-to-right child layout so egui places
-                                    // the vertical scrollbar on the right edge, beside the rows.
-                                    let mut popup_style = (*ui.style()).clone();
-                                    popup_style.spacing.scroll.floating = false;
-                                    ui.set_style(popup_style);
+                                    // Inherit the app's normal scroll styling so the popup thumb
+                                    // matches the slim scrollbar used by the main icon grid.
                                     if ui.selectable_label(self.view == LibraryView::All && self.group.is_none(), "All categories").clicked() {
                                         self.view = LibraryView::All;
                                         self.group = None;
@@ -529,12 +577,12 @@ impl eframe::App for CompanionApp {
                                         close_popup = true;
                                     }
                                     ui.separator();
-                                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
-                                        egui::ScrollArea::vertical()
-                                            .max_height(420.0)
-                                            .auto_shrink([false, true])
-                                            .show(ui, |ui| {
-                                                ui.set_min_width(208.0);
+                                    egui::ScrollArea::vertical()
+                                        .max_height(320.0)
+                                        .auto_shrink([false, true])
+                                        .show(ui, |ui| {
+                                            ui.set_min_width(208.0);
+                                            ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
                                                 for group in &groups {
                                                     if ui.selectable_label(
                                                         self.view == LibraryView::All && self.group.as_ref() == Some(group),
@@ -546,10 +594,19 @@ impl eframe::App for CompanionApp {
                                                     }
                                                 }
                                             });
-                                    });
+                                        });
                                 });
                             });
-                        if close_popup {
+                        // Dismiss on any click outside both the popup and its trigger control.
+                        let popup_rect = popup_response.response.rect;
+                        let clicked_outside = ctx.input(|input| {
+                            if !input.pointer.any_click() { return false; }
+                            let Some(pointer_pos) = input.pointer.interact_pos() else { return false; };
+                            let on_trigger = category_button_rect
+                                .is_some_and(|rect| rect.contains(pointer_pos));
+                            !popup_rect.contains(pointer_pos) && !on_trigger
+                        });
+                        if close_popup || clicked_outside {
                             self.category_open = false;
                         }
                     }
