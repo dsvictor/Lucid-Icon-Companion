@@ -1,4 +1,4 @@
-use crate::{catalogue::{self, Icon}, figcraft::FigCraftClient, settings::Settings};
+use crate::{catalogue::{self, Icon}, clipboard, figcraft::{FigCraftClient, FigCraftError}, settings::Settings};
 use eframe::egui;
 use std::{fs, sync::mpsc::{self, Receiver, Sender}, thread};
 
@@ -243,7 +243,13 @@ impl CompanionApp {
                 .insert_svg(&name, &svg, if center { None } else { Some(x) },
                     if center { None } else { Some(y) }, center)
                 .map(|reply| format!("Inserted {name} into FigCraft. {reply}"))
-                .map_err(|error| error.to_string());
+                .map_err(|error| {
+                    if matches!(&error, FigCraftError::Connect(_)) && FigCraftClient::is_running() {
+                        format!("FigCraft is already open, but its control channel is disabled. Quit FigCraft completely, then click Open FigCraft here to relaunch it with control enabled on port {port}.")
+                    } else {
+                        error.to_string()
+                    }
+                });
             let _ = sender.send(BackgroundResult::Import(result));
             repaint.request_repaint();
         });
@@ -655,10 +661,46 @@ impl eframe::App for CompanionApp {
                                                         egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
                                                         egui::Color32::WHITE);
                                                 }
-                                                if response.on_hover_text(name).clicked() {
+                                                let response = response.on_hover_text(format!("{name} · right-click for options"));
+                                                let mut context_action: Option<u8> = None;
+                                                response.context_menu(|ui| {
+                                                    if ui.button("Copy SVG").clicked() {
+                                                        context_action = Some(1);
+                                                        ui.close();
+                                                    }
+                                                    if ui.button("Insert into FigCraft").clicked() {
+                                                        context_action = Some(2);
+                                                        ui.close();
+                                                    }
+                                                    if ui.button(if self.settings.is_favorite(name) { "Remove from Favorites" } else { "Add to Favorites" }).clicked() {
+                                                        context_action = Some(3);
+                                                        ui.close();
+                                                    }
+                                                });
+                                                if response.clicked_by(egui::PointerButton::Primary) {
                                                     self.select_icon(name);
                                                     if let Some(icon) = self.selected_icon() {
                                                         self.insert_into_figcraft(&icon, &ctx);
+                                                    }
+                                                }
+                                                if let Some(action) = context_action {
+                                                    self.select_icon(name);
+                                                    if let Some(icon) = self.selected_icon() {
+                                                        match action {
+                                                            1 => {
+                                                                let svg = self.styled_svg(&icon);
+                                                                self.status = match clipboard::copy_svg(&svg) {
+                                                                    Ok(()) => format!("Copied {} as SVG. The original 24 × 24 viewBox is preserved.", icon.name),
+                                                                    Err(error) => format!("Could not copy {}: {error}", icon.name),
+                                                                };
+                                                            }
+                                                            2 => self.insert_into_figcraft(&icon, &ctx),
+                                                            3 => {
+                                                                self.settings.toggle_favorite(&icon.name);
+                                                                let _ = self.settings.save();
+                                                            }
+                                                            _ => {}
+                                                        }
                                                     }
                                                 }
                                             });

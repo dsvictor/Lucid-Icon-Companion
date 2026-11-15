@@ -2,6 +2,7 @@ use eframe::egui;
 
 mod app;
 mod catalogue;
+mod clipboard;
 mod figcraft;
 mod settings;
 
