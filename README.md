@@ -3,7 +3,7 @@
 A native macOS companion for browsing the full Lucide icon set, styling SVGs, and inserting editable vector geometry into FigCraft.
 
 **Author:** Jayanta  
-**Version:** 0.3.0  
+**Version:** 0.3.5  
 **First platform:** macOS Apple Silicon  
 **Architecture:** Rust + egui, with a portable application core.
 
@@ -31,8 +31,8 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 - Import SVG as editable geometry with `engine.execute` → `file.import`; the selected Lucide icon name is passed as the import name.
 - Clipboard Copy remains a generic SVG paste operation and FigCraft may label that object “Pasted SVG”; use Insert for the named import path.
 - Insert centred in the current viewport or at explicit canvas X/Y coordinates.
-- Right-click any icon for Copy icon (SVG + PNG), Insert into FigCraft, and Favorites actions.
-- Copy icon writes both the original 24 × 24 SVG vector and a transparent PNG fallback to the macOS clipboard, allowing compatible apps to choose the best representation.
+- Right-click any icon for Copy SVG, Insert into FigCraft, and Favorites actions.
+- Copy SVG writes the original 24 × 24 SVG vector to the macOS clipboard; no PNG or raster fallback is included.
 - Catalogue download and FigCraft actions run in background threads so the UI stays responsive.
 
 ### Keyboard
@@ -41,14 +41,24 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 - `Enter`: select the first result when no result is selected.
 - `Esc`: clear the search query.
 
-## What's new in v0.3.0
+## What's new in v0.3.5
 
-- Category picker is now a vertically scrollable list with outside-click dismissal.
-- Long category names stay right-aligned with consistent spacing before the dropdown chevron.
-- Category dropdown scrollbar matches the slim main icon-grid scrollbar.
-- Navigation and button labels provide brighter hover feedback.
-- "Craft" in the Open FigCraft button uses the `#0cdb96` accent colour.
+### FigCraft integration
+- Improved detection and handling of existing FigCraft instances.
+- Avoided unnecessary duplicate FigCraft windows.
+- Added clearer guidance when FigCraft is running without its optional control channel.
+- Improved the named SVG import path into FigCraft.
 
+### SVG clipboard
+- Added the right-click **Copy SVG** action.
+- Copies SVG vector data only, with no PNG or raster fallback.
+- Preserves the original 24 × 24 SVG viewBox.
+- Compatible applications can paste the copied SVG; FigCraft may label clipboard-pasted objects "Pasted SVG".
+
+### Verification
+- 20 automated tests passed.
+- macOS Apple Silicon release build completed.
+- DMG packaging completed successfully.
 ## Download
 
 <https://github.com/dsvictor/Lucid-Icon-Companion/releases/latest>
