@@ -31,27 +31,19 @@ pub fn copy_svg(svg: &str) -> Result<(), String> {
         return Err(error.to_string());
     }
 
-    // Put both representations on the same NSPasteboard. Vector-aware apps can
-    // choose public.svg-image; apps that only accept bitmap images can use public.png.
-    let script = r#"
-ObjC.import('AppKit');
-ObjC.import('Foundation');
-var args = ObjC.unwrap($.NSProcessInfo.processInfo.arguments);
-var svgPath = args[args.length - 2];
-var pngPath = args[args.length - 1];
-var svgData = $.NSData.dataWithContentsOfFile($(svgPath));
-var pngData = $.NSData.dataWithContentsOfFile($(pngPath));
-if (!svgData || !pngData) throw new Error('Could not read clipboard representations.');
-var pasteboard = $.NSPasteboard.generalPasteboard;
-pasteboard.clearContents;
-var svgOK = pasteboard.setData_forType(svgData, $('public.svg-image'));
-var pngOK = pasteboard.setData_forType(pngData, $('public.png'));
-if (!svgOK || !pngOK) throw new Error('macOS could not write all clipboard formats.');
-"#;
-    let result = Command::new("/usr/bin/osascript")
-        .args(["-l", "JavaScript", "-e", script])
-        .arg(&svg_path).arg(&png_path).output()
-        .map_err(|error| format!("Could not access the macOS clipboard: {error}"));
+    // Use AppKit directly via Swift. The JXA bridge used previously could
+    // return success without updating the general pasteboard on some macOS builds.
+    // A single NSPasteboard is populated with both SVG and PNG representations.
+    let helper_path = std::env::temp_dir().join(format!("lucide-clipboard-helper-{}-{nonce}.swift", std::process::id()));
+    fs::write(&helper_path, include_str!("clipboard_helper.swift"))
+        .map_err(|error| format!("Could not prepare the native clipboard helper: {error}"))?;
+    let result = Command::new("/usr/bin/swift")
+        .arg(&helper_path)
+        .arg(&svg_path)
+        .arg(&png_path)
+        .output()
+        .map_err(|error| format!("Could not start the native macOS clipboard helper: {error}"));
+    let _ = fs::remove_file(&helper_path);
     let _ = fs::remove_file(&svg_path);
     let _ = fs::remove_file(&png_path);
     let output = result?;
