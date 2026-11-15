@@ -464,10 +464,13 @@ impl eframe::App for CompanionApp {
                             egui::Color32::from_gray(175),
                         );
                         let max_category_width = (available - gap - 112.0).max(146.0);
+                        // Reserve a fixed trailing area for the chevron and its breathing room.
+                        // The label is right-aligned to that area, so longer names grow leftward
+                        // instead of drifting toward or crowding the chevron.
                         let category_width = (label_galley.size().x + 42.0)
                             .max(146.0)
                             .min(max_category_width);
-                        let search_width = (available - category_width - gap).max(112.0);
+                        let search_width = (available - category_width - gap).max(72.0);
                         ui.allocate_ui_with_layout(
                             egui::vec2(search_width, 30.0),
                             egui::Layout::left_to_right(egui::Align::Center),
@@ -514,17 +517,22 @@ impl eframe::App for CompanionApp {
                             },
                         );
                         ui.add_space(gap);
-                        let category_button = ui.add_sized(
-                            [category_width, 30.0],
-                            egui::Button::new(
-                                egui::RichText::new(selected_filter)
-                                    .size(13.0)
-                                    .color(egui::Color32::from_gray(175))
-                            ).frame(false)
+                        let (category_rect, category_response) = ui.allocate_exact_size(
+                            egui::vec2(category_width, 30.0), egui::Sense::click(),
                         );
-                        category_button_rect = Some(category_button.rect);
+                        category_button_rect = Some(category_rect);
+                        // Right-anchor the label with a stable 27 px gap before the chevron.
+                        let label_pos = egui::pos2(
+                            category_rect.right() - 27.0 - label_galley.size().x,
+                            category_rect.center().y - label_galley.size().y * 0.5,
+                        );
+                        ui.painter().galley(
+                            label_pos, label_galley,
+                            if category_response.hovered() { egui::Color32::from_gray(225) }
+                            else { egui::Color32::from_gray(175) },
+                        );
                         // Draw a true vector chevron; avoid font-dependent ▾ glyph fallback.
-                        let chevron_center = egui::pos2(category_button.rect.right() - 15.0, category_button.rect.center().y);
+                        let chevron_center = egui::pos2(category_rect.right() - 15.0, category_rect.center().y);
                         let chevron_stroke = egui::Stroke::new(1.2, egui::Color32::from_gray(155));
                         ui.painter().line_segment(
                             [chevron_center + egui::vec2(-3.0, -1.5), chevron_center + egui::vec2(0.0, 1.5)],
@@ -536,10 +544,10 @@ impl eframe::App for CompanionApp {
                         );
                         const CATEGORY_POPUP_WIDTH: f32 = 232.0;
                         self.category_popup_pos = egui::pos2(
-                            category_button.rect.right() - CATEGORY_POPUP_WIDTH,
-                            category_button.rect.bottom() + 4.0,
+                            category_rect.right() - CATEGORY_POPUP_WIDTH,
+                            category_rect.bottom() + 4.0,
                         );
-                        if category_button.clicked() {
+                        if category_response.clicked() {
                             self.category_open = !self.category_open;
                         }
                     });
@@ -553,10 +561,8 @@ impl eframe::App for CompanionApp {
                                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                                     ui.set_min_width(232.0);
                                     ui.set_max_width(232.0);
-                                    // Clone the underlying Style (not its Arc) before adjusting the scrollbar.
-                                    let mut popup_style = (**ui.style()).clone();
-                                    popup_style.spacing.scroll.floating = false;
-                                    ui.set_style(popup_style);
+                                    // Inherit the app's normal scroll styling so the popup thumb
+                                    // matches the slim scrollbar used by the main icon grid.
                                     if ui.selectable_label(self.view == LibraryView::All && self.group.is_none(), "All categories").clicked() {
                                         self.view = LibraryView::All;
                                         self.group = None;
