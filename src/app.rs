@@ -405,9 +405,26 @@ impl eframe::App for CompanionApp {
                     let groups = self.available_groups();
                     // One aligned search row; category control is a text-only custom popup.
                     ui.horizontal(|ui| {
-                        let category_width = 146.0_f32;
                         let gap = 10.0_f32;
                         let available = ui.available_width();
+                        let selected_filter = match self.view {
+                            LibraryView::Favorites => "Favorites",
+                            LibraryView::Recent => "Recent",
+                            LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
+                        };
+                        // Measure the selected label and grow the category control to the left.
+                        // Its right edge stays fixed, preserving the same gap before the chevron
+                        // and the window's right content margin for both short and long labels.
+                        let label_font = egui::FontId::proportional(13.0);
+                        let label_galley = ui.painter().layout_no_wrap(
+                            selected_filter.to_owned(),
+                            label_font,
+                            egui::Color32::from_gray(175),
+                        );
+                        let max_category_width = (available - gap - 112.0).max(146.0);
+                        let category_width = (label_galley.size().x + 42.0)
+                            .max(146.0)
+                            .min(max_category_width);
                         let search_width = (available - category_width - gap).max(112.0);
                         ui.allocate_ui_with_layout(
                             egui::vec2(search_width, 30.0),
@@ -455,11 +472,6 @@ impl eframe::App for CompanionApp {
                             },
                         );
                         ui.add_space(gap);
-                        let selected_filter = match self.view {
-                            LibraryView::Favorites => "Favorites",
-                            LibraryView::Recent => "Recent",
-                            LibraryView::All => self.group.as_deref().unwrap_or("All categories"),
-                        };
                         let category_button = ui.add_sized(
                             [category_width, 30.0],
                             egui::Button::new(
@@ -479,8 +491,9 @@ impl eframe::App for CompanionApp {
                             [chevron_center + egui::vec2(0.0, 1.5), chevron_center + egui::vec2(3.0, -1.5)],
                             chevron_stroke,
                         );
+                        const CATEGORY_POPUP_WIDTH: f32 = 232.0;
                         self.category_popup_pos = egui::pos2(
-                            category_button.rect.right() - 232.0,
+                            category_button.rect.right() - CATEGORY_POPUP_WIDTH,
                             category_button.rect.bottom() + 4.0,
                         );
                         if category_button.clicked() {
@@ -496,6 +509,12 @@ impl eframe::App for CompanionApp {
                             .show(&ctx, |ui| {
                                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                                     ui.set_min_width(232.0);
+                                    ui.set_max_width(232.0);
+                                    // Keep the list in a left-to-right child layout so egui places
+                                    // the vertical scrollbar on the right edge, beside the rows.
+                                    let mut popup_style = (*ui.style()).clone();
+                                    popup_style.spacing.scroll.floating = false;
+                                    ui.set_style(popup_style);
                                     if ui.selectable_label(self.view == LibraryView::All && self.group.is_none(), "All categories").clicked() {
                                         self.view = LibraryView::All;
                                         self.group = None;
@@ -510,17 +529,23 @@ impl eframe::App for CompanionApp {
                                         close_popup = true;
                                     }
                                     ui.separator();
-                                    egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
-                                        for group in &groups {
-                                            if ui.selectable_label(
-                                                self.view == LibraryView::All && self.group.as_ref() == Some(group),
-                                                group,
-                                            ).clicked() {
-                                                self.view = LibraryView::All;
-                                                self.group = Some(group.clone());
-                                                close_popup = true;
-                                            }
-                                        }
+                                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                                        egui::ScrollArea::vertical()
+                                            .max_height(420.0)
+                                            .auto_shrink([false, true])
+                                            .show(ui, |ui| {
+                                                ui.set_min_width(208.0);
+                                                for group in &groups {
+                                                    if ui.selectable_label(
+                                                        self.view == LibraryView::All && self.group.as_ref() == Some(group),
+                                                        group,
+                                                    ).clicked() {
+                                                        self.view = LibraryView::All;
+                                                        self.group = Some(group.clone());
+                                                        close_popup = true;
+                                                    }
+                                                }
+                                            });
                                     });
                                 });
                             });
