@@ -62,7 +62,38 @@ Download **Lucide-Companion-macOS-arm64.dmg** from the latest release.
 
 **Compatibility:** macOS 13 or later, Apple Silicon (ARM64).
 
-**Security note:** The current release is not code-signed or notarized. macOS may block the first launch; if so, use System Settings → Privacy & Security to approve the app after confirming that you trust the download.
+### First launch: app is not notarized
+
+This release is currently **not code-signed or notarized**. macOS Gatekeeper may prevent it from opening because Apple has not notarized the app. Only proceed if you downloaded the DMG from this project's official GitHub Releases page and trust the software.
+
+You can use either of the following methods. Usually, the manual method is preferable because it approves this app through macOS settings without using Terminal.
+
+#### Method 1 — Manual approval (recommended)
+
+1. Make sure **Lucide Companion.app** is in your **Applications** folder.
+2. Try to open the app once. If macOS displays a security warning, dismiss it using **Done** or **Cancel**.
+3. Open **System Settings → Privacy & Security**.
+4. Scroll down to the **Security** section. You should see a message saying that Lucide Companion was blocked from use.
+5. Select **Open Anyway**. Authenticate with your Mac password or Touch ID if requested.
+6. Confirm **Open** in the final prompt.
+
+The **Open Anyway** option generally appears only after you have attempted to launch the app and macOS has blocked it. The wording and placement can vary slightly between macOS versions.
+
+#### Method 2 — Terminal
+
+After copying the app into **Applications**, open Terminal and run:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Lucide Companion.app"
+```
+
+Then open **Lucide Companion.app** from Applications.
+
+This command removes the quarantine attribute from this app bundle and its contents so Gatekeeper no longer applies the downloaded-file quarantine check to it. It does **not** code-sign or notarize the app. Check that the app came from the official release before running the command.
+
+If you installed the app somewhere other than Applications, replace the path in the command with the actual path to **Lucide Companion.app**. You can also type `xattr -dr com.apple.quarantine ` (including the trailing space) in Terminal, drag the app into the Terminal window to insert its path, and press Return.
+
+**Important:** Do not disable Gatekeeper globally with commands such as `spctl --master-disable`. The steps above apply only to this app.
 
 For development builds and CI checks, see [GitHub Actions](https://github.com/dsvictor/Lucid-Icon-Companion/actions).
 
@@ -91,7 +122,7 @@ The import command accepts X/Y coordinates and a `center` flag. When centred mod
 - Lucide's static package publishes tags and tag groups, not a separate category taxonomy; the app therefore exposes upstream tag groups rather than inventing categories.
 - Runtime insertion still needs a hands-on test against the user's installed FigCraft 0.15.0 and active document.
 - Dragging icons directly out of the companion into another app is not implemented yet; use the named Insert action, Copy SVG, or Export SVG.
-- The macOS package is unsigned. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
+- The macOS package is unsigned and not notarized. Developer ID signing and notarization require the owner's Apple Developer ID credentials.
 - Windows and Linux are included in CI compile checks; native installers and interactive runtime testing remain future work after macOS behaviour is validated.
 
 ## Licensing
