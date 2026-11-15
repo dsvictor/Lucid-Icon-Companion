@@ -664,7 +664,7 @@ impl eframe::App for CompanionApp {
                                                 let response = response.on_hover_text(format!("{name} · right-click for options"));
                                                 let mut context_action: Option<u8> = None;
                                                 response.context_menu(|ui| {
-                                                    if ui.button("Copy icon (SVG + PNG)").clicked() {
+                                                    if ui.button("Copy SVG").clicked() {
                                                         context_action = Some(1);
                                                         ui.close();
                                                     }
@@ -690,7 +690,7 @@ impl eframe::App for CompanionApp {
                                                             1 => {
                                                                 let svg = self.styled_svg(&icon);
                                                                 self.status = match clipboard::copy_svg(&svg) {
-                                                                    Ok(()) => format!("Copied {} as SVG and PNG. The original 24 × 24 viewBox is preserved.", icon.name),
+                                                                    Ok(()) => format!("Copied {} as SVG. The original 24 × 24 viewBox is preserved.", icon.name),
                                                                     Err(error) => format!("Could not copy {}: {error}", icon.name),
                                                                 };
                                                             }
