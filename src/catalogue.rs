@@ -45,11 +45,11 @@ pub fn load_cache(root: &Path) -> Vec<Icon> {
 pub fn download_latest(root: &Path) -> Result<(Vec<Icon>, String), CatalogueError> {
     fs::create_dir_all(root).map_err(|e| CatalogueError::Cache(e.to_string()))?;
     let latest: NpmLatest = ureq::get("https://registry.npmjs.org/lucide-static/latest")
-        .set("User-Agent", "Lucide-Icon-Companion/0.2.0").call()
+        .set("User-Agent", concat!("Lucide-Icon-Companion/", env!("CARGO_PKG_VERSION"))).call()
         .map_err(|e| CatalogueError::Metadata(e.to_string()))?
         .into_json().map_err(|e| CatalogueError::Metadata(e.to_string()))?;
     let mut archive_bytes = Vec::new();
-    ureq::get(&latest.dist.tarball).set("User-Agent", "Lucide-Icon-Companion/0.2.0")
+    ureq::get(&latest.dist.tarball).set("User-Agent", concat!("Lucide-Icon-Companion/", env!("CARGO_PKG_VERSION")))
         .call().map_err(|e| CatalogueError::Download(e.to_string()))?
         .into_reader().read_to_end(&mut archive_bytes)
         .map_err(|e| CatalogueError::Download(e.to_string()))?;
