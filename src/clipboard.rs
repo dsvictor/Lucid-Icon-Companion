@@ -13,8 +13,13 @@ pub fn copy_svg(svg: &str) -> Result<(), String> {
     let mut pixmap = tiny_skia::Pixmap::new(width, height)
         .ok_or_else(|| "Could not allocate the PNG clipboard image.".to_owned())?;
     resvg::render(&tree, tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
-    let png = pixmap.encode_png()
+    let rgba = image::RgbaImage::from_raw(width, height, pixmap.data().to_vec())
+        .ok_or_else(|| "Could not prepare the PNG clipboard image.".to_owned())?;
+    let mut png_cursor = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(rgba)
+        .write_to(&mut png_cursor, image::ImageFormat::Png)
         .map_err(|error| format!("Could not encode PNG clipboard image: {error}"))?;
+    let png = png_cursor.into_inner();
 
     let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
     let base = std::env::temp_dir().join(format!("lucide-clipboard-{}-{nonce}", std::process::id()));
