@@ -7,6 +7,7 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 #[derive(Debug, thiserror::Error)]
 pub enum FigCraftError {
     #[error("Could not launch FigCraft: {0}")] Launch(String),
+    #[error("FigCraft is already running, but its control channel is not enabled. Quit FigCraft completely, then click Open FigCraft in Lucide Companion to relaunch it with control enabled.")] AlreadyRunningWithoutControl,
     #[error("Could not connect to FigCraft at 127.0.0.1: {0}")] Connect(String),
     #[error("Control socket I/O failed: {0}")] Io(String),
     #[error("FigCraft rejected the command: {0}")] Rejected(String),
@@ -18,16 +19,29 @@ pub struct FigCraftClient { address: SocketAddr }
 impl FigCraftClient {
     pub fn new(port: u16) -> Self { Self { address: SocketAddr::from(([127, 0, 0, 1], port)) } }
 
+    /// Returns whether a FigCraft process is already running, even if it was not
+    /// started with the optional localhost control server.
+    pub fn is_running() -> bool {
+        #[cfg(target_os = "macos")]
+        let process = "FigCraft";
+        #[cfg(not(target_os = "macos"))]
+        let process = "figcraft";
+        Command::new("pgrep").args(["-x", process]).status()
+            .map(|status| status.success()).unwrap_or(false)
+    }
+
     pub fn launch(&self) -> Result<(), FigCraftError> {
-        // Reuse an already control-enabled instance. If FigCraft is running normally
-        // without the listener, ask Launch Services for a fresh app instance so the
-        // --control argument is not silently discarded by an already-running process.
         if self.check_connection().is_ok() {
             return Ok(());
         }
+        // The control server is opt-in at process startup. Do not create a confusing
+        // second window when a normal FigCraft instance is already running.
+        if Self::is_running() {
+            return Err(FigCraftError::AlreadyRunningWithoutControl);
+        }
         #[cfg(target_os = "macos")]
         {
-            Command::new("open").args(["-n", "-a", "FigCraft", "--args", "--control"])
+            Command::new("open").args(["-a", "FigCraft", "--args", "--control"])
                 .arg(self.address.port().to_string()).spawn().map(|_| ())
                 .map_err(|e| FigCraftError::Launch(e.to_string()))
         }
