@@ -3,7 +3,7 @@
 A native macOS companion for browsing the full Lucide icon set, styling SVGs, and inserting editable vector geometry into FigCraft.
 
 **Author:** Jayanta  
-**Version:** 0.2.0  
+**Version:** 0.3.0  
 **First platform:** macOS Apple Silicon  
 **Architecture:** Rust + egui, with a portable application core.
 
@@ -39,6 +39,14 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 - `Enter`: select the first result when no result is selected.
 - `Esc`: clear the search query.
 
+## What's new in v0.3.0
+
+- Category picker is now a vertically scrollable list with outside-click dismissal.
+- Long category names stay right-aligned with consistent spacing before the dropdown chevron.
+- Category dropdown scrollbar matches the slim main icon-grid scrollbar.
+- Navigation and button labels provide brighter hover feedback.
+- "Craft" in the Open FigCraft button uses the `#0cdb96` accent colour.
+
 ## Download
 
 <https://github.com/dsvictor/Lucid-Icon-Companion/releases/latest>
@@ -55,9 +63,6 @@ Download **Lucide-Companion-macOS-arm64.dmg** from the latest release.
 **Compatibility:** macOS 13 or later, Apple Silicon (ARM64).
 
 **Security note:** The current release is not code-signed or notarized. macOS may block the first launch; if so, use System Settings → Privacy & Security to approve the app after confirming that you trust the download.
-
-**SHA-256 (v0.2.0):**
-`fc486b60e54b1f03e656b8526d7b2dd1d3e8cccc12b54b94c80074b4e4f1f464`
 
 For development builds and CI checks, see [GitHub Actions](https://github.com/dsvictor/Lucid-Icon-Companion/actions).
 
