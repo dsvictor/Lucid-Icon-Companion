@@ -399,7 +399,9 @@ impl eframe::App for CompanionApp {
                         let suffix = ui.painter().layout_no_wrap(
                             "Craft".to_owned(), font.clone(), egui::Color32::WHITE,
                         );
-                        let text_width = prefix.size().x + suffix.size().x;
+                        let prefix_width = prefix.size().x;
+                        let text_height = prefix.size().y;
+                        let text_width = prefix_width + suffix.size().x;
                         let (rect, open) = ui.allocate_exact_size(
                             egui::vec2(text_width + 24.0, 28.0), egui::Sense::click(),
                         );
@@ -415,13 +417,13 @@ impl eframe::App for CompanionApp {
                             egui::StrokeKind::Inside,
                         );
                         let text_left = rect.center().x - text_width * 0.5;
-                        let text_top = rect.center().y - prefix.size().y * 0.5;
+                        let text_top = rect.center().y - text_height * 0.5;
                         ui.painter().galley(
                             egui::pos2(text_left, text_top), prefix,
                             if open.hovered() { egui::Color32::WHITE } else { egui::Color32::from_gray(205) },
                         );
                         ui.painter().galley(
-                            egui::pos2(text_left + suffix.size().x.min(0.0) + text_width - suffix.size().x, text_top),
+                            egui::pos2(text_left + prefix_width, text_top),
                             suffix, egui::Color32::from_rgb(12, 219, 150),
                         );
                         if open.on_hover_text("Open FigCraft with control enabled").clicked() {
