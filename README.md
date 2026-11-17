@@ -17,14 +17,6 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 - All, Favorites and Recent views.
 - Persistent favourites and recent-icon history.
 
-### Preview and SVG styling
-- SVG preview rendered locally.
-- Supplied red-and-blue companion mark is packaged as the native macOS app icon.
-- Adjustable preview size and stroke width.
-- Custom stroke and fill colours (hex values); fill can remain `none`.
-- Export SVG to a chosen location.
-- Copy SVG source to the clipboard and inspect raw markup.
-
 ### FigCraft integration
 - Launch FigCraft with its loopback control listener.
 - Test the control connection using the documented `window.list` method.
@@ -35,11 +27,6 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 - Copy SVG writes the original 24 × 24 SVG vector to the macOS clipboard; no PNG or raster fallback is included.
 - Catalogue download and FigCraft actions run in background threads so the UI stays responsive.
 
-### Keyboard
-- `⌘F`: focus icon search.
-- `↑` / `↓`: move through the filtered icon list when search is not focused.
-- `Enter`: select the first result when no result is selected.
-- `Esc`: clear the search query.
 
 ## What's new in v0.3.5
 
@@ -48,18 +35,9 @@ A native macOS companion for browsing the full Lucide icon set, styling SVGs, an
 - Avoided unnecessary duplicate FigCraft windows.
 - Added clearer guidance when FigCraft is running without its optional control channel.
 - Improved the named SVG import path into FigCraft.
-
-### SVG clipboard
 - Added the right-click **Copy SVG** action.
-- Copies SVG vector data only, with no PNG or raster fallback.
-- Preserves the original 24 × 24 SVG viewBox.
-- Compatible applications can paste the copied SVG; FigCraft may label clipboard-pasted objects "Pasted SVG".
 
-### Verification
-- 20 automated tests passed.
-- macOS Apple Silicon release build completed.
-- DMG packaging completed successfully.
-## Download
+
 
 <https://github.com/dsvictor/Lucid-Icon-Companion/releases/latest>
 
