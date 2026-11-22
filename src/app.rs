@@ -531,7 +531,7 @@ impl eframe::App for CompanionApp {
                                         } else {
                                             let cancel_id = self.cancel_ui_icon.as_ref()
                                                 .map_or(egui::TextureId::default(), |texture| texture.id());
-                                            let cancel = ui.add(egui::ImageButton::new(
+                                            let cancel = ui.add(egui::Button::image(
                                                 egui::Image::new((cancel_id, egui::vec2(14.0, 14.0)))
                                             ).frame(false));
                                             if cancel.clicked() { self.query.clear(); }
