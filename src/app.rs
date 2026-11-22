@@ -38,6 +38,10 @@ pub struct CompanionApp {
     host_context: Option<(String, egui::TextureHandle)>,
     search_ui_icon: Option<egui::TextureHandle>,
     refresh_ui_icon: Option<egui::TextureHandle>,
+    cancel_ui_icon: Option<egui::TextureHandle>,
+    copy_ui_icon: Option<egui::TextureHandle>,
+    dropdown_ui_icon: Option<egui::TextureHandle>,
+    open_figcraft_ui_icon: Option<egui::TextureHandle>,
 }
 
 fn safe_hex_color(value: &str) -> Option<&str> {
@@ -84,6 +88,12 @@ impl CompanionApp {
         let (action_tx, action_rx) = mpsc::channel();
         let search_ui_icon = Self::render_preview(&cc.egui_ctx, include_str!("../assets/search.svg"), "ui-search");
         let refresh_ui_icon = Self::render_preview(&cc.egui_ctx, include_str!("../assets/refresh.svg"), "ui-refresh");
+        let cancel_ui_icon = Self::render_preview(&cc.egui_ctx, include_str!("../assets/cancel.svg"), "ui-cancel");
+        // Resolve currentColor explicitly so the copy glyph remains visible on the dark UI.
+        let copy_svg = include_str!("../assets/copy.svg").replace("currentColor", "#FFFFFF");
+        let copy_ui_icon = Self::render_preview(&cc.egui_ctx, &copy_svg, "ui-copy");
+        let dropdown_ui_icon = Self::render_preview(&cc.egui_ctx, include_str!("../assets/dropdown.svg"), "ui-dropdown");
+        let open_figcraft_ui_icon = Self::render_preview(&cc.egui_ctx, include_str!("../assets/open_in_figcraft.svg"), "ui-open-figcraft");
         Self {
             settings, query: String::new(), icons, catalogue_version, selected: None, view: LibraryView::All,
             group: None, category_open: false, category_popup_pos: egui::Pos2::ZERO,
@@ -91,7 +101,8 @@ impl CompanionApp {
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
             grid_previews: std::collections::HashMap::new(),
             context_loading: false, host_context: None,
-            search_ui_icon, refresh_ui_icon,
+            search_ui_icon, refresh_ui_icon, cancel_ui_icon, copy_ui_icon,
+            dropdown_ui_icon, open_figcraft_ui_icon,
         }
     }
 
@@ -404,7 +415,7 @@ impl eframe::App for CompanionApp {
                         self.update_catalogue(&ctx);
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // A custom split-colour button keeps "Craft" in the requested accent green.
+                        // Keep the custom split-colour label and use the supplied SVG launch icon.
                         let font = egui::FontId::proportional(10.5);
                         let prefix = ui.painter().layout_no_wrap(
                             "Open Fig".to_owned(), font.clone(), egui::Color32::WHITE,
@@ -416,7 +427,7 @@ impl eframe::App for CompanionApp {
                         let text_height = prefix.size().y;
                         let text_width = prefix_width + suffix.size().x;
                         let (rect, open) = ui.allocate_exact_size(
-                            egui::vec2(text_width + 24.0, 28.0), egui::Sense::click(),
+                            egui::vec2(text_width + 42.0, 28.0), egui::Sense::click(),
                         );
                         let fill = if open.hovered() {
                             egui::Color32::from_rgb(82, 82, 82)
@@ -429,7 +440,14 @@ impl eframe::App for CompanionApp {
                             egui::Stroke::new(0.5, egui::Color32::from_gray(88)),
                             egui::StrokeKind::Inside,
                         );
-                        let text_left = rect.center().x - text_width * 0.5;
+                        let open_icon_id = self.open_figcraft_ui_icon.as_ref()
+                            .map_or(egui::TextureId::default(), |texture| texture.id());
+                        let icon_rect = egui::Rect::from_center_size(
+                            egui::pos2(rect.left() + 17.0, rect.center().y), egui::vec2(15.0, 15.0));
+                        ui.painter().image(open_icon_id, icon_rect,
+                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                            egui::Color32::WHITE);
+                        let text_left = rect.left() + 31.0;
                         let text_top = rect.center().y - text_height * 0.5;
                         ui.painter().galley(
                             egui::pos2(text_left, text_top), prefix,
@@ -510,8 +528,13 @@ impl eframe::App for CompanionApp {
                                     |ui| {
                                         if self.query.is_empty() {
                                             ui.add_space(clear_slot_width);
-                                        } else if ui.small_button("×").clicked() {
-                                            self.query.clear();
+                                        } else {
+                                            let cancel_id = self.cancel_ui_icon.as_ref()
+                                                .map_or(egui::TextureId::default(), |texture| texture.id());
+                                            let cancel = ui.add(egui::ImageButton::new(
+                                                egui::Image::new((cancel_id, egui::vec2(14.0, 14.0)))
+                                            ).frame(false));
+                                            if cancel.clicked() { self.query.clear(); }
                                         }
                                     },
                                 );
@@ -533,17 +556,15 @@ impl eframe::App for CompanionApp {
                             if category_response.hovered() { egui::Color32::from_gray(225) }
                             else { egui::Color32::from_gray(175) },
                         );
-                        // Draw a true vector chevron; avoid font-dependent ▾ glyph fallback.
-                        let chevron_center = egui::pos2(category_rect.right() - 15.0, category_rect.center().y);
-                        let chevron_stroke = egui::Stroke::new(1.2, egui::Color32::from_gray(155));
-                        ui.painter().line_segment(
-                            [chevron_center + egui::vec2(-3.0, -1.5), chevron_center + egui::vec2(0.0, 1.5)],
-                            chevron_stroke,
-                        );
-                        ui.painter().line_segment(
-                            [chevron_center + egui::vec2(0.0, 1.5), chevron_center + egui::vec2(3.0, -1.5)],
-                            chevron_stroke,
-                        );
+                        // Use the supplied dropdown SVG instead of drawing the chevron in code.
+                        let dropdown_id = self.dropdown_ui_icon.as_ref()
+                            .map_or(egui::TextureId::default(), |texture| texture.id());
+                        let chevron_rect = egui::Rect::from_center_size(
+                            egui::pos2(category_rect.right() - 15.0, category_rect.center().y),
+                            egui::vec2(14.0, 14.0));
+                        ui.painter().image(dropdown_id, chevron_rect,
+                            egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                            egui::Color32::WHITE);
                         const CATEGORY_POPUP_WIDTH: f32 = 232.0;
                         self.category_popup_pos = egui::pos2(
                             category_rect.right() - CATEGORY_POPUP_WIDTH,
@@ -713,7 +734,13 @@ impl eframe::App for CompanionApp {
                                     if self.importing { "Inserting…" } else { "Insert" })).clicked() {
                                     self.insert_into_figcraft(&icon, &ctx);
                                 }
-                                if ui.small_button("Copy").clicked() {
+                                let copy_id = self.copy_ui_icon.as_ref()
+                                    .map_or(egui::TextureId::default(), |texture| texture.id());
+                                if ui.add(egui::Button::image(
+                                    egui::Image::new((copy_id, egui::vec2(15.0, 15.0)))
+                                ).frame(false).min_size(egui::vec2(24.0, 24.0)))
+                                    .on_hover_text("Copy SVG")
+                                    .clicked() {
                                     ctx.copy_text(self.styled_svg(&icon));
                                     self.status = format!("Copied {} SVG.", icon.name);
                                 }
