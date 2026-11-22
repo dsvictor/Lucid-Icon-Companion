@@ -36,6 +36,8 @@ pub struct CompanionApp {
     grid_previews: std::collections::HashMap<String, egui::TextureHandle>,
     context_loading: bool,
     host_context: Option<(String, egui::TextureHandle)>,
+    search_ui_icon: Option<egui::TextureHandle>,
+    refresh_ui_icon: Option<egui::TextureHandle>,
 }
 
 fn safe_hex_color(value: &str) -> Option<&str> {
@@ -80,6 +82,8 @@ impl CompanionApp {
         };
         let (catalogue_tx, catalogue_rx) = mpsc::channel();
         let (action_tx, action_rx) = mpsc::channel();
+        let search_ui_icon = Self::render_preview(&cc.egui_ctx, include_str!("../assets/search.svg"), "ui-search");
+        let refresh_ui_icon = Self::render_preview(&cc.egui_ctx, include_str!("../assets/refresh.svg"), "ui-refresh");
         Self {
             settings, query: String::new(), icons, catalogue_version, selected: None, view: LibraryView::All,
             group: None, category_open: false, category_popup_pos: egui::Pos2::ZERO,
@@ -87,6 +91,7 @@ impl CompanionApp {
             catalogue_tx, catalogue_rx, action_tx, action_rx, preview: None,
             grid_previews: std::collections::HashMap::new(),
             context_loading: false, host_context: None,
+            search_ui_icon, refresh_ui_icon,
         }
     }
 
@@ -390,8 +395,10 @@ impl eframe::App for CompanionApp {
                     ui.label(egui::RichText::new(format!("Lucide v{}", self.catalogue_version))
                         .size(11.0).color(egui::Color32::from_gray(155)));
                     ui.add_space(4.0);
-                    let refresh = ui.add_enabled(!self.loading, egui::Button::new(
-                        egui::RichText::new("⟳").size(17.0).color(egui::Color32::from_gray(175))
+                    let refresh_texture = self.refresh_ui_icon.as_ref()
+                        .map_or(egui::TextureId::default(), |texture| texture.id());
+                    let refresh = ui.add_enabled(!self.loading, egui::Button::image(
+                        egui::Image::new((refresh_texture, egui::vec2(16.0, 16.0)))
                     ).frame(false));
                     if refresh.on_hover_text("Update Lucide catalogue").clicked() {
                         self.update_catalogue(&ctx);
@@ -482,20 +489,9 @@ impl eframe::App for CompanionApp {
                             egui::Layout::left_to_right(egui::Align::Center),
                             |ui| {
                                 ui.spacing_mut().item_spacing.x = 7.0;
-                                // Draw the magnifier with vector primitives so it renders on every system font.
-                                let (search_icon_rect, _) = ui.allocate_exact_size(
-                                    egui::vec2(16.0, 30.0), egui::Sense::hover());
-                                let search_center = egui::pos2(
-                                    search_icon_rect.center().x - 2.0,
-                                    search_icon_rect.center().y - 1.0,
-                                );
-                                let search_stroke = egui::Stroke::new(1.8, egui::Color32::WHITE);
-                                ui.painter().circle_stroke(search_center, 6.0, search_stroke);
-                                ui.painter().line_segment(
-                                    [egui::pos2(search_center.x + 4.5, search_center.y + 4.5),
-                                     egui::pos2(search_center.x + 9.0, search_center.y + 9.0)],
-                                    search_stroke,
-                                );
+                                let search_texture = self.search_ui_icon.as_ref()
+                                    .map_or(egui::TextureId::default(), |texture| texture.id());
+                                ui.add_sized([16.0, 30.0], egui::Image::new((search_texture, egui::vec2(16.0, 16.0))));
                                 // Keep a fixed trailing clear-button slot so typing never
                                 // changes the toolbar width or pushes the category picker offscreen.
                                 let clear_slot_width = 22.0_f32;
